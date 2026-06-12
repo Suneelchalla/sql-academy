@@ -555,6 +555,46 @@ table.rgrid td.null{color:#5C6E82;font-style:italic}
 }
 .gsc-sug:hover .gsc-sug-del{opacity:1}
 .gsc-sug-del:hover{background:#e8eaed; color:#5f6368}
+
+/* ── PAGE TRANSITION ── */
+#view{transition:opacity .18s ease, transform .18s ease;}
+#view.fading{opacity:0;transform:translateY(6px);}
+
+/* ── COPY BUTTON on example blocks ── */
+.ex-copy{
+  font-family:var(--mono);font-size:10.5px;font-weight:600;
+  background:transparent;color:var(--faint);border:1px solid var(--line-2);
+  padding:4px 10px;border-radius:6px;cursor:pointer;
+  display:flex;align-items:center;gap:5px;transition:.14s;
+  margin-right:6px;
+}
+.ex-copy:hover{background:var(--paper-3);color:var(--ink);border-color:var(--muted);}
+.ex-copy.copied{color:var(--pass);border-color:var(--pass);background:var(--pass-bg);}
+
+/* ── SYNTAX HIGHLIGHT TEXTAREA (quiz + console) ── */
+.sqlin-wrap{position:relative;width:100%;}
+.sqlin-hl{
+  position:absolute;inset:0;pointer-events:none;
+  font-family:var(--mono);font-size:13.5px;line-height:1.6;
+  background:transparent;color:transparent;
+  padding:13px 15px;white-space:pre-wrap;word-break:break-word;
+  border-radius:10px;overflow:hidden;tab-size:2;
+  border:1px solid transparent;
+}
+/* quiz textarea gets a highlight layer */
+textarea.sqlin{background:var(--ink);color:#D6E0EC;position:relative;z-index:1;}
+
+/* ── SQL ERROR HINT box ── */
+.sql-err-hint{
+  margin-top:10px;padding:11px 15px;border-radius:10px;
+  background:#1a1a2e;border:1px solid var(--fail);
+  font-family:var(--mono);font-size:12.5px;line-height:1.6;
+}
+.sql-err-hint .err-line{color:var(--fail);font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:7px;}
+.sql-err-hint .err-raw{color:#8892a4;font-size:11.5px;margin-bottom:8px;}
+.sql-err-hint .err-fix{color:#8ee3a0;font-size:12px;}
+.sql-err-hint .err-fix strong{color:#b5f5c4;}
+.sql-err-hint code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:11.5px;}
 </style>
 </head>
 <body>
@@ -2529,12 +2569,28 @@ function exampleHTML(ex,idx){
   const runBtn = runnable
     ? `<button class="ex-run" onclick="loadAndRun(this)" data-sql="${encodeURIComponent(ex.sql)}"><span class="tri">▶</span> Run</button>`
     : `<button class="ex-run disabled" title="SQL Server-only syntax — not runnable in the SQLite playground"><span class="tri">▶</span> MS SQL only</button>`;
+  const copyId=`ex-copy-${idx}-${Math.random().toString(36).slice(2,7)}`;
   return `<div class="example">
     <div class="ex-head"><span class="lbl">Example <span class="n">${String(idx+1).padStart(2,'0')}</span></span>
-      <span class="spacer"></span>${runBtn}</div>
+      <span class="spacer"></span>
+      <button class="ex-copy" id="${copyId}" onclick="copySQL(this,${JSON.stringify(ex.sql)})">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>Copy</button>
+      ${runBtn}</div>
     <pre class="code">${hl(ex.sql)}</pre>
     ${ex.cap?`<div class="ex-cap">${ex.cap}</div>`:''}
   </div>`;
+}
+function copySQL(btn, sql){
+  navigator.clipboard.writeText(sql).then(()=>{
+    btn.classList.add('copied');
+    btn.innerHTML='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Copied!';
+    setTimeout(()=>{
+      btn.classList.remove('copied');
+      btn.innerHTML='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy';
+    }, 2000);
+  }).catch(()=>toast('Copy failed — try manually selecting the code'));
 }
 function renderTopic(id){
   const t=TOPICS.find(x=>x.id===id); if(!t){go('home');return;}
@@ -2662,7 +2718,11 @@ function quizHTML(quiz,ns,topicId){
         <input type="radio" name="${ns}-${i}" value="${oi}" onchange="selOpt('${ns}',${i},${oi})">
         <span>${o}</span><span class="tag"></span></label>`).join('');
     } else {
-      inner=`<textarea class="sqlin" id="${ns}-${i}-in" spellcheck="false" placeholder="-- write your SQL query here"></textarea>`;
+      inner=`<div class="sqlin-wrap">
+        <textarea class="sqlin" id="${ns}-${i}-in" spellcheck="false" placeholder="-- write your SQL query here"
+          oninput="hlTA(this)" onscroll="syncHL(this)"></textarea>
+        <div class="sqlin-hl" id="${ns}-${i}-hl" aria-hidden="true"></div>
+      </div>`;
     }
     items+=`<div class="qitem" id="${ns}-${i}">
       <div class="q-no">QUESTION ${i+1}</div>
@@ -2838,6 +2898,77 @@ function renderTest(id){
   bindQuiz(t.questions,'ft_'+t.id);
 }
 
+
+/* ============================================================
+   SQL ERROR HINT ENGINE
+   ============================================================ */
+function sqlErrorHint(msg, sql){
+  const m = msg.toLowerCase();
+  const s = sql.trim().toUpperCase();
+  let title='', hint='', fix='';
+
+  /* ── pattern matching ── */
+  if(m.includes('no such table')){
+    const tbl = msg.match(/no such table: (\S+)/i);
+    const name = tbl?tbl[1]:'the table';
+    title='Table not found';
+    hint=`The table <code>${name}</code> doesn't exist in this session. If you just created it, make sure the CREATE TABLE statement ran successfully first.`;
+    fix=`Check spelling — table names are case-sensitive in SQLite. Available tables: <strong>Employees, Departments, Projects, EmployeeProjects, Customers, Orders</strong>.`;
+  } else if(m.includes('no such column')){
+    const col = msg.match(/no such column: (\S+)/i);
+    const name = col?col[1]:'the column';
+    title='Column not found';
+    hint=`The column <code>${name}</code> doesn't exist in the table you're querying.`;
+    fix=`Check spelling and make sure you're using the right table alias. Use <code>SELECT *</code> first to see available columns.`;
+  } else if(m.includes('syntax error')){
+    title='SQL syntax error';
+    if(s.startsWith('SELECT') && !s.includes('FROM')){
+      hint='Your SELECT is missing a <code>FROM</code> clause.';
+      fix='Every SELECT (except for literal expressions like <code>SELECT 1+1</code>) needs a <code>FROM tableName</code> after the column list.';
+    } else if(s.includes('WHERE') && (s.includes('COUNT(') || s.includes('SUM(') || s.includes('AVG('))){
+      hint='You cannot use aggregate functions (COUNT, SUM, AVG…) in a <code>WHERE</code> clause.';
+      fix='Use <code>HAVING</code> instead of <code>WHERE</code> to filter on aggregated values — <code>HAVING COUNT(*) > 2</code>.';
+    } else if(m.includes("near \")\"") || m.includes("near \")\"'")){
+      hint='Mismatched parentheses or quotes detected.';
+      fix='Count your opening and closing brackets <code>(  )</code> — every open bracket needs a matching close. Also check your string quotes are balanced.';
+    } else {
+      hint='SQL Server has a word or character it did not expect at that point in the query.';
+      fix='Read the query clause by clause: <code>SELECT … FROM … WHERE … GROUP BY … HAVING … ORDER BY</code>. A missing comma between columns and a missing keyword are the most common causes.';
+    }
+  } else if(m.includes('ambiguous column')){
+    const col = msg.match(/ambiguous column name: (\S+)/i);
+    title='Ambiguous column name';
+    hint=`The column <code>${col?col[1]:'that column'}</code> exists in more than one of the tables you joined, so SQL doesn't know which one you mean.`;
+    fix='Prefix the column with its table alias — e.g. <code>e.DeptId</code> instead of just <code>DeptId</code>.';
+  } else if(m.includes('unique constraint') || m.includes('unique')){
+    title='Duplicate value error';
+    hint='You tried to insert a value that already exists in a column with a UNIQUE or PRIMARY KEY constraint.';
+    fix='Check if the row already exists with a SELECT first, or use a different primary key value.';
+  } else if(m.includes('not null')){
+    title='NULL not allowed';
+    hint='You tried to insert NULL (or omit a value) for a column that is defined as NOT NULL.';
+    fix='Provide a value for all required columns. Check which columns have NOT NULL constraints in the CREATE TABLE statement.';
+  } else if(m.includes('foreign key')){
+    title='Foreign key violation';
+    hint='You tried to insert a value in a foreign key column that does not exist in the parent table.';
+    fix='Make sure the referenced ID exists in the parent table first. For example, DeptId must exist in Departments before you can assign it to an Employee.';
+  } else if(m.includes('datatype mismatch') || m.includes('type mismatch')){
+    title='Data type mismatch';
+    hint='You are trying to put the wrong type of value into a column — e.g. text into a number column.';
+    fix='Use <code>CAST(value AS INTEGER)</code> or <code>CAST(value AS TEXT)</code> to convert the value to the right type.';
+  } else {
+    title='Query error';
+    hint=msg;
+    fix='Try simplifying your query — start with a basic <code>SELECT * FROM TableName</code> and add complexity step by step.';
+  }
+
+  return `<div class="sql-err-hint">
+    <div class="err-line">💡 ${title}</div>
+    <div class="err-raw">Raw error: ${esc(msg)}</div>
+    <div class="err-fix">${hint}<br><br><strong>Try this:</strong> ${fix}</div>
+  </div>`;
+}
+
 /* ============================================================
    CONSOLE INTERACTION
    ============================================================ */
@@ -2883,8 +3014,7 @@ function runConsole(){
     const rows=res[res.length-1].values.length;
     out.innerHTML=`<div class="res-status ok">✓ ${rows} row${rows!==1?'s':''} · ${ms} ms</div>`+html;
   }catch(e){
-    out.innerHTML=`<div class="res-status err">✗ Error: ${esc(e.message)}</div>
-      <div class="con-empty">Check the syntax. Remember this is SQLite — MS SQL-only keywords won't work here.</div>`;
+    out.innerHTML=`<div class="res-status err">✗ Error: ${esc(e.message)}</div>`+sqlErrorHint(e.message, sql);
   }
 }
 document.addEventListener('keydown',e=>{
@@ -2904,6 +3034,20 @@ function toggleSidebar(){document.getElementById('sidebar').classList.toggle('op
 let toastT;
 function toast(m){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');
   clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),2200);}
+
+
+/* ── live syntax highlight in quiz textareas ── */
+function hlTA(ta){
+  const hl_el=document.getElementById(ta.id.replace('-in','-hl'));
+  if(!hl_el)return;
+  // mirror the highlighted version into the overlay
+  hl_el.innerHTML=hl(ta.value||' ')+' ';
+  syncHL(ta);
+}
+function syncHL(ta){
+  const hl_el=document.getElementById(ta.id.replace('-in','-hl'));
+  if(hl_el){ hl_el.scrollTop=ta.scrollTop; hl_el.scrollLeft=ta.scrollLeft; }
+}
 
 /* BOOT */
 flatten(); buildNav(); refreshProgress(); renderHome(); setActive();
