@@ -2383,6 +2383,412 @@ SELECT Name, DeptId FROM HighEarners ORDER BY Salary DESC;</pre>
   ]
  }
 ]});
+
+COURSE.push({
+ name:"Advanced Querying", blurb:"Subqueries, conditional logic, and powerful window functions — the skills that separate intermediate from pro.",
+ topics:[
+ {
+  id:"subqueries", unit:31, title:"Subqueries in SQL Server",
+  lead:"A subquery is a query inside another query — like asking one question to answer another. Once you understand them, you can solve almost any data problem.",
+  body:`
+   <h3>What is a subquery?</h3>
+   <p>Imagine you want to find all employees who earn more than the average salary. You need two pieces of information: (1) what IS the average salary? and (2) who earns more than that? A subquery lets you do both in one statement — the inner query calculates the average, and the outer query uses that result to filter.</p>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">SELECT Name, Salary
+FROM   Employees
+WHERE  Salary > (SELECT AVG(Salary) FROM Employees);</pre>
+   <p>The part in parentheses <code>(SELECT AVG(Salary) FROM Employees)</code> runs first and returns a single number. The outer query then uses that number in its WHERE clause.</p>
+
+   <h3>Three places you can use a subquery</h3>
+   <table class="tbl"><thead><tr><th>Location</th><th>Called</th><th>Returns</th><th>Example use</th></tr></thead><tbody>
+     <tr><td>In <code>WHERE</code></td><td>Row subquery</td><td>Single value or list</td><td>Employees earning above average</td></tr>
+     <tr><td>In <code>FROM</code></td><td>Derived table / inline view</td><td>A result set (acts as a table)</td><td>Pre-aggregate before joining</td></tr>
+     <tr><td>In <code>SELECT</code></td><td>Scalar subquery</td><td>Exactly one value per row</td><td>Show each dept name alongside each employee</td></tr>
+   </tbody></table>
+
+   <h3>Non-correlated vs correlated subqueries</h3>
+   <p>A <strong>non-correlated</strong> subquery runs once and returns a fixed result — it has no reference to the outer query. The AVG example above is non-correlated.</p>
+   <p>A <strong>correlated</strong> subquery references the outer query and runs once per row of the outer query — it is re-evaluated for each row. They are powerful but can be slow on large tables:</p>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">-- Find employees who earn more than the average in THEIR OWN department
+SELECT Name, Salary, DeptId
+FROM   Employees e
+WHERE  Salary > (SELECT AVG(Salary) FROM Employees WHERE DeptId = e.DeptId);</pre>
+   <p>Notice <code>e.DeptId</code> — this references the outer query's current row, making it correlated.</p>
+
+   <h3>IN, EXISTS, and comparison operators with subqueries</h3>
+   <ul>
+     <li><code>WHERE col IN (SELECT …)</code> — matches any value in the subquery's result list.</li>
+     <li><code>WHERE EXISTS (SELECT 1 FROM … WHERE …)</code> — true if the subquery returns any rows at all. Often faster than IN on large datasets.</li>
+     <li><code>WHERE col = (SELECT …)</code> — only works when the subquery returns exactly one value.</li>
+   </ul>
+   <div class="note warn"><b>Common mistake</b>Using <code>= (SELECT …)</code> when the subquery might return more than one row causes an error: "Subquery returned more than 1 value." Use <code>IN</code> when the result can have multiple rows.</div>`,
+  examples:[
+   {sql:`-- Non-correlated: employees earning above average salary\nSELECT Name, Salary\nFROM   Employees\nWHERE  Salary > (SELECT AVG(Salary) FROM Employees)\nORDER  BY Salary DESC;`,
+    cap:"The inner query runs once, returns the average. Outer query filters against it."},
+   {sql:`-- Subquery in FROM (derived table): dept headcount then join\nSELECT d.DeptName, h.Cnt\nFROM   Departments d\nJOIN   (SELECT DeptId, COUNT(*) AS Cnt FROM Employees GROUP BY DeptId) h\n       ON d.DeptId = h.DeptId\nORDER  BY h.Cnt DESC;`,
+    cap:"The subquery in FROM acts like a temporary table. We name it 'h' and join to it."},
+   {sql:`-- EXISTS: departments that have at least one employee\nSELECT DeptName\nFROM   Departments d\nWHERE  EXISTS (\n  SELECT 1 FROM Employees WHERE DeptId = d.DeptId\n);`,
+    cap:"EXISTS returns true as soon as the inner query finds one matching row — very efficient."},
+   {sql:`-- IN: employees who work on at least one project\nSELECT Name\nFROM   Employees\nWHERE  EmpId IN (SELECT EmpId FROM EmployeeProjects);`,
+    cap:"IN checks if EmpId appears anywhere in the EmployeeProjects table."}
+  ],
+  quiz:[
+   {type:"sql", q:"Return the <code>Name</code> and <code>Salary</code> of every employee whose salary is above the overall average salary.",
+    expected:`SELECT Name, Salary FROM Employees WHERE Salary>(SELECT AVG(Salary) FROM Employees);`,
+    explain:"The subquery calculates AVG(Salary) across all employees. The outer WHERE filters to those above that average."},
+   {type:"sql", q:"Find the <code>DeptName</code> of departments that have <strong>no</strong> employees, using a subquery with NOT IN.",
+    expected:`SELECT DeptName FROM Departments WHERE DeptId NOT IN (SELECT DeptId FROM Employees WHERE DeptId IS NOT NULL);`,
+    explain:"NOT IN returns departments whose DeptId does not appear in the employee list. The IS NOT NULL guard prevents NULL from breaking NOT IN."},
+   {type:"mcq", q:"A correlated subquery differs from a non-correlated one because it…",
+    options:["Always runs faster","References a column from the outer query and re-runs for each outer row","Can only be used in WHERE","Returns a table, not a value"],
+    answer:1, explain:"A correlated subquery uses a value from the current outer row (e.g. e.DeptId), so it must re-execute for every row of the outer query."},
+   {type:"mcq", q:"Which operator should you use when a subquery might return multiple rows?",
+    options:["= (equals)","IN","BETWEEN","LIKE"],
+    answer:1, explain:"= expects exactly one value. When the subquery returns multiple rows, use IN (or EXISTS). Using = with multiple rows causes a runtime error."}
+  ]
+ },
+ {
+  id:"case-when", unit:32, title:"CASE WHEN and IIF in SQL Server",
+  lead:"CASE WHEN is SQL's if-else — it lets you add conditional logic directly inside a query without any stored procedures or application code.",
+  body:`
+   <h3>The two forms of CASE</h3>
+   <p><strong>Searched CASE</strong> (most flexible — use this one):</p>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">CASE
+  WHEN condition1 THEN result1
+  WHEN condition2 THEN result2
+  ELSE default_result
+END</pre>
+   <p><strong>Simple CASE</strong> (like a switch statement — checks equality only):</p>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">CASE column
+  WHEN value1 THEN result1
+  WHEN value2 THEN result2
+  ELSE default_result
+END</pre>
+
+   <h3>Where can you use CASE?</h3>
+   <p>Almost anywhere an expression is allowed — in SELECT (to create calculated columns), in ORDER BY (to sort differently based on conditions), in WHERE (rarely, but possible), and even inside aggregate functions.</p>
+
+   <h3>Real-world uses</h3>
+   <ul>
+     <li><strong>Label banding:</strong> categorise salaries as 'Low', 'Mid', 'High' for reporting.</li>
+     <li><strong>Conditional aggregation:</strong> count only the rows matching a condition — e.g. count male vs female employees in one query without two separate queries.</li>
+     <li><strong>Custom sort order:</strong> sort 'High' rows first even though they're stored as text.</li>
+     <li><strong>NULL replacement:</strong> show 'Not assigned' instead of NULL.</li>
+   </ul>
+
+   <h3>IIF — the shorthand for a simple two-way branch</h3>
+   <p><code>IIF(condition, true_value, false_value)</code> is a shorter way to write a two-branch CASE. <code>IIF(Salary > 60000, 'Senior', 'Junior')</code> is identical to writing the full CASE. Use IIF for simple yes/no decisions; use CASE for anything more complex.</p>
+
+   <h3>The ELSE clause</h3>
+   <p>If you omit ELSE and no WHEN matches, the result is NULL. Always include an ELSE for safety unless NULL is genuinely what you want.</p>`,
+  examples:[
+   {sql:`-- Salary band label\nSELECT Name, Salary,\n       CASE\n         WHEN Salary >= 70000 THEN 'High'\n         WHEN Salary >= 50000 THEN 'Mid'\n         ELSE 'Low'\n       END AS Band\nFROM   Employees\nORDER  BY Salary DESC;`,
+    cap:"Each employee is labelled based on their salary range. Conditions are checked top to bottom — first match wins."},
+   {sql:`-- Conditional aggregation: count by gender in one row\nSELECT\n  COUNT(CASE WHEN Gender='Male'   THEN 1 END) AS Males,\n  COUNT(CASE WHEN Gender='Female' THEN 1 END) AS Females\nFROM Employees;`,
+    cap:"CASE inside COUNT — counts only the rows where the condition is true. A classic interview technique."},
+   {sql:`-- IIF shorthand\nSELECT Name, Salary,\n       IIF(Salary > 60000, 'Senior', 'Junior') AS Grade\nFROM   Employees;`,
+    cap:"IIF is a two-branch shortcut. Equivalent to CASE WHEN Salary>60000 THEN 'Senior' ELSE 'Junior' END."},
+   {sql:`-- CASE in ORDER BY for custom sort\nSELECT Name, City\nFROM   Employees\nORDER  BY\n  CASE City\n    WHEN 'London' THEN 1\n    WHEN 'Sydney' THEN 2\n    ELSE 3\n  END, Name;`,
+    cap:"London employees appear first, then Sydney, then everyone else — regardless of alphabetical order."}
+  ],
+  quiz:[
+   {type:"sql", q:"Return each employee's <code>Name</code>, <code>Salary</code>, and a column <code>Level</code> that shows <code>Senior</code> for salary >= 60000, <code>Mid</code> for >= 45000, and <code>Junior</code> for everything else.",
+    expected:`SELECT Name, Salary, CASE WHEN Salary>=60000 THEN 'Senior' WHEN Salary>=45000 THEN 'Mid' ELSE 'Junior' END AS Level FROM Employees;`,
+    explain:"Searched CASE checks conditions top-to-bottom — the first WHEN that is true wins. ELSE catches everything not matched above."},
+   {type:"sql", q:"In a single query, return two columns: <code>MaleCount</code> (number of male employees) and <code>FemaleCount</code> (number of female employees).",
+    expected:`SELECT COUNT(CASE WHEN Gender='Male' THEN 1 END) AS MaleCount, COUNT(CASE WHEN Gender='Female' THEN 1 END) AS FemaleCount FROM Employees;`,
+    explain:"CASE inside COUNT returns 1 for matching rows and NULL for others. COUNT ignores NULLs, so it only counts the matching rows."},
+   {type:"mcq", q:"What does CASE return if no WHEN condition matches and there is no ELSE clause?",
+    options:["0","An empty string","NULL","An error"],
+    answer:2, explain:"Without an ELSE, an unmatched CASE returns NULL. Always add ELSE to avoid unexpected NULLs in your output."},
+   {type:"mcq", q:"When would you use IIF instead of CASE WHEN?",
+    options:["When you have 3 or more conditions","When you need a simple true/false two-branch result","When sorting results","When grouping rows"],
+    answer:1, explain:"IIF only supports two outcomes (true or false). Use CASE WHEN for three or more branches."}
+  ]
+ },
+ {
+  id:"window-functions", unit:33, title:"Window functions — ROW_NUMBER, RANK and DENSE_RANK",
+  lead:"Window functions perform calculations across a set of related rows without collapsing them into one row like GROUP BY does. They are one of the most powerful — and most asked about in interviews — features in SQL.",
+  body:`
+   <h3>The problem they solve</h3>
+   <p>Suppose you want to show every employee alongside their rank by salary within their department. GROUP BY can not do this — it collapses rows. A JOIN approach is messy. Window functions do it in one clean expression.</p>
+
+   <h3>The syntax pattern</h3>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">function_name() OVER (
+  PARTITION BY column   -- optional: divide into groups
+  ORDER BY column       -- defines the ranking order
+)</pre>
+   <p><strong>OVER()</strong> is what makes it a window function. The PARTITION BY divides rows into groups (windows). ORDER BY within OVER determines how rows are ordered inside each partition for ranking or running totals.</p>
+
+   <h3>The three ranking functions</h3>
+   <table class="tbl"><thead><tr><th>Function</th><th>Handles ties how?</th><th>Example with scores 100, 100, 90</th></tr></thead><tbody>
+     <tr><td><code>ROW_NUMBER()</code></td><td>Assigns unique numbers — no ties, arbitrary tiebreak</td><td>1, 2, 3</td></tr>
+     <tr><td><code>RANK()</code></td><td>Tied rows get same rank, next rank skips</td><td>1, 1, 3 (gap after tie)</td></tr>
+     <tr><td><code>DENSE_RANK()</code></td><td>Tied rows get same rank, next rank does NOT skip</td><td>1, 1, 2 (no gap)</td></tr>
+   </tbody></table>
+
+   <h3>When to use each</h3>
+   <ul>
+     <li><strong>ROW_NUMBER</strong> — pagination (give me rows 11–20), deduplication (keep the first row per group).</li>
+     <li><strong>RANK</strong> — competition-style ranking where ties cause gaps (Olympic medals: two golds means no silver).</li>
+     <li><strong>DENSE_RANK</strong> — ranking where gaps would be confusing (salary bands, grade bands).</li>
+   </ul>
+   <div class="note"><b>Key insight</b>Window functions run AFTER WHERE and GROUP BY but BEFORE ORDER BY. They see the filtered result set and can reference any column in it.</div>`,
+  examples:[
+   {sql:`-- ROW_NUMBER: give each employee a sequential number by salary\nSELECT Name, Salary, DeptId,\n       ROW_NUMBER() OVER (ORDER BY Salary DESC) AS RowNum\nFROM   Employees;`,
+    cap:"Each row gets a unique number 1,2,3... by descending salary. No ties — every number is unique."},
+   {sql:`-- RANK vs DENSE_RANK side by side\nSELECT Name, Salary,\n       RANK()       OVER (ORDER BY Salary DESC) AS Rnk,\n       DENSE_RANK() OVER (ORDER BY Salary DESC) AS DenseRnk\nFROM   Employees\nORDER  BY Salary DESC;`,
+    cap:"Compare both columns — when two employees share a salary, RANK skips the next number but DENSE_RANK does not."},
+   {sql:`-- PARTITION BY: rank within each department separately\nSELECT Name, DeptId, Salary,\n       RANK() OVER (PARTITION BY DeptId ORDER BY Salary DESC) AS DeptRank\nFROM   Employees\nWHERE  DeptId IS NOT NULL\nORDER  BY DeptId, DeptRank;`,
+    cap:"PARTITION BY DeptId resets the rank counter for each department. Each department has its own rank 1, 2, 3..."},
+   {sql:`-- ROW_NUMBER for deduplication: keep highest-paid per dept\nSELECT Name, DeptId, Salary\nFROM (\n  SELECT Name, DeptId, Salary,\n         ROW_NUMBER() OVER (PARTITION BY DeptId ORDER BY Salary DESC) AS rn\n  FROM   Employees WHERE DeptId IS NOT NULL\n) t\nWHERE rn = 1;`,
+    cap:"The subquery adds rn=1 to the top earner per department. Outer WHERE keeps only rn=1 — one row per dept."}
+  ],
+  quiz:[
+   {type:"sql", q:"Return each employee's <code>Name</code>, <code>Salary</code>, and their overall salary rank (highest = 1) as <code>SalaryRank</code>, using <code>DENSE_RANK</code>.",
+    expected:`SELECT Name, Salary, DENSE_RANK() OVER (ORDER BY Salary DESC) AS SalaryRank FROM Employees;`,
+    explain:"DENSE_RANK() OVER (ORDER BY Salary DESC) ranks from highest to lowest with no gaps for ties."},
+   {type:"sql", q:"Return <code>Name</code>, <code>DeptId</code>, <code>Salary</code>, and <code>RowNum</code> — a unique row number ordered by salary descending within each department. Only include employees with a non-NULL DeptId.",
+    expected:`SELECT Name, DeptId, Salary, ROW_NUMBER() OVER (PARTITION BY DeptId ORDER BY Salary DESC) AS RowNum FROM Employees WHERE DeptId IS NOT NULL;`,
+    explain:"PARTITION BY DeptId creates a separate window per department. ROW_NUMBER resets to 1 at the start of each department."},
+   {type:"mcq", q:"Salaries are 90, 90, 80. What does RANK() return for these three rows (highest first)?",
+    options:["1, 2, 3","1, 1, 2","1, 1, 3","2, 2, 3"],
+    answer:2, explain:"Two tied rows both get rank 1. The next row skips to rank 3 (not 2) because two rows were ranked above it."},
+   {type:"mcq", q:"What is the key difference between using GROUP BY with COUNT(*) and using ROW_NUMBER() OVER()?",
+    options:["GROUP BY is faster","GROUP BY collapses rows into groups; window functions keep all individual rows","Window functions cannot use ORDER BY","They are identical"],
+    answer:1, explain:"GROUP BY reduces many rows to one summary row per group. Window functions calculate a result per row while keeping every row intact."}
+  ]
+ },
+ {
+  id:"over-partition", unit:34, title:"OVER and PARTITION BY with aggregate functions",
+  lead:"PARTITION BY inside OVER() turns any aggregate function (SUM, AVG, COUNT, MIN, MAX) into a window aggregate — you get the group total on every individual row without collapsing the data.",
+  body:`
+   <h3>The big idea</h3>
+   <p>Normally, <code>SUM(Salary)</code> with <code>GROUP BY DeptId</code> collapses all employees in a department into one row showing the total. But what if you want every employee row AND the department total side by side? That is what <code>SUM(Salary) OVER (PARTITION BY DeptId)</code> does — it computes the sum per department and stamps that value onto every row in the department.</p>
+
+   <h3>Running totals with ORDER BY inside OVER</h3>
+   <p>When you add <code>ORDER BY</code> inside OVER, the aggregate becomes a <strong>running/cumulative aggregate</strong> — it accumulates as it goes down the ordered rows:</p>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">SUM(Salary) OVER (ORDER BY EmpId)  -- running total, ordered by EmpId</pre>
+
+   <h3>Percentage of total — a classic pattern</h3>
+   <p>Combine both: divide each employee's salary by the department total to get their percentage contribution:</p>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">ROUND(100.0 * Salary / SUM(Salary) OVER (PARTITION BY DeptId), 1) AS PctOfDept</pre>
+
+   <h3>Framing — controlling the window</h3>
+   <p>You can control exactly which rows are included in the window with a frame clause like <code>ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code> (the default for running totals). Most of the time you do not need to specify this — the defaults work for the common cases.</p>`,
+  examples:[
+   {sql:`-- Department total alongside every employee\nSELECT Name, DeptId, Salary,\n       SUM(Salary) OVER (PARTITION BY DeptId) AS DeptTotal,\n       AVG(Salary) OVER (PARTITION BY DeptId) AS DeptAvg\nFROM   Employees\nWHERE  DeptId IS NOT NULL\nORDER  BY DeptId, Salary DESC;`,
+    cap:"Every row shows the individual salary AND the department's total and average. No GROUP BY needed."},
+   {sql:`-- Running total ordered by EmpId\nSELECT EmpId, Name, Salary,\n       SUM(Salary) OVER (ORDER BY EmpId) AS RunningTotal\nFROM   Employees\nORDER  BY EmpId;`,
+    cap:"Each row accumulates the salary total from row 1 up to the current row — a classic running sum."},
+   {sql:`-- Salary as % of department total\nSELECT Name, DeptId, Salary,\n       ROUND(100.0 * Salary / SUM(Salary) OVER (PARTITION BY DeptId), 1) AS PctOfDept\nFROM   Employees\nWHERE  DeptId IS NOT NULL\nORDER  BY DeptId, Salary DESC;`,
+    cap:"Each employee's salary as a percentage of their department's total salary bill."},
+   {sql:`-- COUNT without GROUP BY: how many in each dept, per row\nSELECT Name, DeptId,\n       COUNT(*) OVER (PARTITION BY DeptId) AS DeptHeadcount,\n       COUNT(*) OVER ()                    AS TotalHeadcount\nFROM   Employees\nWHERE  DeptId IS NOT NULL;`,
+    cap:"OVER() with no PARTITION BY uses the entire result set as one window — gives the grand total on every row."}
+  ],
+  quiz:[
+   {type:"sql", q:"For each employee (with a non-NULL DeptId), return <code>Name</code>, <code>DeptId</code>, <code>Salary</code>, and <code>DeptTotal</code> — the sum of all salaries in their department.",
+    expected:`SELECT Name, DeptId, Salary, SUM(Salary) OVER (PARTITION BY DeptId) AS DeptTotal FROM Employees WHERE DeptId IS NOT NULL;`,
+    explain:"SUM(Salary) OVER (PARTITION BY DeptId) computes the salary total within each department group and attaches it to every row."},
+   {type:"sql", q:"Return <code>Name</code>, <code>Salary</code>, and a running total of salaries ordered by <code>Salary</code> ascending, as <code>RunningTotal</code>.",
+    expected:`SELECT Name, Salary, SUM(Salary) OVER (ORDER BY Salary) AS RunningTotal FROM Employees;`,
+    explain:"Adding ORDER BY inside OVER turns SUM into a cumulative running total, ordered by Salary."},
+   {type:"mcq", q:"What is the result of <code>COUNT(*) OVER ()</code> with no PARTITION BY?",
+    options:["Counts per group","Returns NULL","The total count of all rows in the result set, repeated on every row","An error"],
+    answer:2, explain:"OVER() with no partition treats the entire result set as one window — COUNT(*) returns the grand total on every single row."},
+   {type:"mcq", q:"How does SUM with OVER(PARTITION BY) differ from SUM with GROUP BY?",
+    options:["They are identical","OVER keeps all individual rows; GROUP BY collapses rows into one per group","OVER is slower","GROUP BY can use PARTITION BY too"],
+    answer:1, explain:"GROUP BY merges rows into group summaries. OVER(PARTITION BY) computes the group summary but preserves every original row."}
+  ]
+ },
+ {
+  id:"lag-lead", unit:35, title:"LAG and LEAD — comparing rows to previous and next",
+  lead:"LAG lets you look at the previous row's value; LEAD lets you look at the next row's value — without any self-joins. They are perfect for period-over-period comparisons.",
+  body:`
+   <h3>Why LAG and LEAD exist</h3>
+   <p>Imagine you want to show each order's amount alongside the previous order's amount — to calculate the change. Before window functions, you had to do an ugly self-join. LAG and LEAD do this in one clean line.</p>
+
+   <h3>Syntax</h3>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">LAG (column, offset, default)  OVER (PARTITION BY ... ORDER BY ...)
+LEAD(column, offset, default)  OVER (PARTITION BY ... ORDER BY ...)</pre>
+   <ul>
+     <li><strong>column</strong> — what value to look at</li>
+     <li><strong>offset</strong> — how many rows back (LAG) or forward (LEAD). Default is 1.</li>
+     <li><strong>default</strong> — what to return when there is no previous/next row (e.g. the first row has no previous). Default is NULL.</li>
+   </ul>
+
+   <h3>Common use cases</h3>
+   <ul>
+     <li><strong>Month-over-month growth</strong> — compare this month's revenue to last month's.</li>
+     <li><strong>Change detection</strong> — find rows where a value changed from the previous row.</li>
+     <li><strong>Session analysis</strong> — time between a user's consecutive events.</li>
+     <li><strong>Stock prices</strong> — daily price change vs yesterday's close.</li>
+   </ul>
+
+   <h3>The ORDER BY inside OVER is required</h3>
+   <p>LAG and LEAD always need an ORDER BY inside OVER — they must know what "previous" and "next" means in your context. Without ORDER BY the result would be non-deterministic.</p>`,
+  examples:[
+   {sql:`-- Each order with the previous order's amount\nSELECT OrderId, OrderDate, Amount,\n       LAG(Amount, 1, 0) OVER (ORDER BY OrderDate) AS PrevAmount\nFROM   Orders\nORDER  BY OrderDate;`,
+    cap:"The first row has no previous row, so PrevAmount shows 0 (our default). Every other row shows the amount from the row before it."},
+   {sql:`-- Amount change vs previous order\nSELECT OrderId, OrderDate, Amount,\n       LAG(Amount) OVER (ORDER BY OrderDate)            AS PrevAmount,\n       Amount - LAG(Amount,1,Amount) OVER (ORDER BY OrderDate) AS Change\nFROM   Orders\nORDER  BY OrderDate;`,
+    cap:"Change = current amount minus previous. The first row gets Change=0 because the default equals Amount itself."},
+   {sql:`-- LEAD: each order with the next order date\nSELECT OrderId, OrderDate,\n       LEAD(OrderDate, 1, 'No next order') OVER (ORDER BY OrderDate) AS NextOrderDate\nFROM   Orders\nORDER  BY OrderDate;`,
+    cap:"LEAD looks forward. The last order has no next, so it shows our default string."},
+   {sql:`-- Partition: compare salary to previous hire in same department\nSELECT Name, DeptId, HireDate, Salary,\n       LAG(Salary) OVER (PARTITION BY DeptId ORDER BY HireDate) AS PrevHireSalary\nFROM   Employees\nWHERE  DeptId IS NOT NULL\nORDER  BY DeptId, HireDate;`,
+    cap:"PARTITION BY DeptId means 'previous' is the previous hire within the same department, not globally."}
+  ],
+  quiz:[
+   {type:"sql", q:"For each order, return <code>OrderId</code>, <code>Amount</code>, and <code>PrevAmount</code> — the amount of the previous order by date (use 0 as the default when there is no previous row).",
+    expected:`SELECT OrderId, Amount, LAG(Amount,1,0) OVER (ORDER BY OrderDate) AS PrevAmount FROM Orders;`,
+    explain:"LAG(Amount,1,0) looks 1 row back in OrderDate order. The first row gets 0 as its default."},
+   {type:"mcq", q:"What does LEAD(Salary, 2) return for the second-to-last row in an ordered result?",
+    options:["The salary 2 rows before","The salary 2 rows ahead — which is the last row","NULL — there is no row 2 ahead","An error"],
+    answer:2, explain:"From the second-to-last row, looking 2 rows ahead goes past the end of the result set, so LEAD returns NULL (or the specified default)."},
+   {type:"mcq", q:"Why is ORDER BY inside OVER() required for LAG and LEAD?",
+    options:["It is optional","LAG/LEAD need to know what row is considered 'previous' or 'next' — ORDER BY defines that sequence","It improves performance","It sorts the final output"],
+    answer:1, explain:"Without ORDER BY, the concept of 'previous row' is undefined. LAG and LEAD need a deterministic ordering to know which row to look back or forward to."},
+   {type:"mcq", q:"What is the default value returned by LAG when there is no previous row and no default is specified?",
+    options:["0","An empty string","NULL","The first row value"],
+    answer:2, explain:"When no default is given, LAG returns NULL for rows with no preceding row in the partition."}
+  ]
+ }
+]});
+COURSE.push({
+ name:"Data Manipulation (DML)", blurb:"Insert, update, delete and merge data — the write side of SQL that every developer needs.",
+ topics:[
+ {
+  id:"insert-select", unit:36, title:"INSERT INTO … SELECT — copying data between tables",
+  lead:"Instead of inserting values one by one, you can insert the entire result of a SELECT query into a table. This is the standard way to copy, transform, or migrate data in SQL.",
+  body:`
+   <h3>Two INSERT syntaxes side by side</h3>
+   <table class="tbl"><thead><tr><th>Syntax</th><th>Use when</th></tr></thead><tbody>
+     <tr><td><code>INSERT INTO T VALUES (1, 'Asha')</code></td><td>Inserting one or a few known literal values</td></tr>
+     <tr><td><code>INSERT INTO T SELECT … FROM …</code></td><td>Inserting results of a query — any number of rows</td></tr>
+   </tbody></table>
+
+   <h3>Rules</h3>
+   <ul>
+     <li>The number of columns in INSERT must match the SELECT column count.</li>
+     <li>Data types must be compatible — the SELECT output for each column must match the target column type.</li>
+     <li>If you list column names in INSERT, they map positionally to the SELECT output.</li>
+     <li>If you omit column names, all non-identity columns must be covered in order.</li>
+   </ul>
+
+   <h3>SELECT INTO — creating a new table from a query</h3>
+   <p><code>SELECT … INTO NewTable FROM …</code> is a related but different operation — it creates a brand new table and populates it in one step. It is great for creating backup copies or staging tables quickly. The new table gets its column names and types from the SELECT.</p>
+   <div class="note warn"><b>SELECT INTO vs INSERT INTO … SELECT</b>SELECT INTO creates a new table (fails if it already exists). INSERT INTO … SELECT adds rows to an existing table. Do not confuse them.</div>`,
+  examples:[
+   {sql:`-- Copy high earners into an archive table\nCREATE TABLE HighEarners(EmpId INTEGER, Name TEXT, Salary INTEGER);\nINSERT INTO HighEarners (EmpId, Name, Salary)\nSELECT EmpId, Name, Salary\nFROM   Employees\nWHERE  Salary > 60000;\nSELECT * FROM HighEarners;`,
+    cap:"Creates the table first, then inserts all employees with salary over 60000 in one statement."},
+   {sql:`-- Insert with transformation: store name in uppercase\nCREATE TABLE EmpUpper(EmpId INTEGER, UpperName TEXT);\nINSERT INTO EmpUpper\nSELECT EmpId, UPPER(Name)\nFROM   Employees;\nSELECT * FROM EmpUpper;`,
+    cap:"The SELECT can apply any expression — here UPPER transforms the name before inserting."},
+   {sql:`-- Insert aggregated summary into a report table\nCREATE TABLE DeptSummary(DeptId INTEGER, Headcount INTEGER, AvgSalary REAL);\nINSERT INTO DeptSummary\nSELECT DeptId, COUNT(*), AVG(Salary)\nFROM   Employees\nWHERE  DeptId IS NOT NULL\nGROUP  BY DeptId;\nSELECT * FROM DeptSummary;`,
+    cap:"Aggregate results go straight into a summary table — no intermediate step needed."}
+  ],
+  quiz:[
+   {type:"sql", q:"Create a table <code>LondonEmployees(EmpId INTEGER, Name TEXT)</code> and insert into it all employees whose <code>City</code> is <code>'London'</code>. Then SELECT all rows from it.",
+    expected:`CREATE TABLE LondonEmployees(EmpId INTEGER, Name TEXT); INSERT INTO LondonEmployees SELECT EmpId, Name FROM Employees WHERE City='London'; SELECT * FROM LondonEmployees;`,
+    explain:"CREATE TABLE defines the structure. INSERT INTO ... SELECT copies matching rows. The SELECT columns must match in count and type."},
+   {type:"mcq", q:"What is the key difference between SELECT INTO NewTable and INSERT INTO ExistingTable SELECT?",
+    options:["They are identical","SELECT INTO creates a new table; INSERT INTO adds rows to an existing one","INSERT INTO is faster","SELECT INTO requires a WHERE clause"],
+    answer:1, explain:"SELECT INTO creates a brand new table from the query result. INSERT INTO ... SELECT adds rows to a table that already exists."},
+   {type:"mcq", q:"You run INSERT INTO T SELECT Name, Salary FROM Employees but T only has one column. What happens?",
+    options:["SQL inserts only the Name","SQL inserts both columns anyway","An error — column count mismatch","NULL is inserted for Salary"],
+    answer:2, explain:"The number of columns in the SELECT list must match the number of columns being inserted. A mismatch causes an error."}
+  ]
+ },
+ {
+  id:"update-join", unit:37, title:"UPDATE with JOIN — updating rows based on another table",
+  lead:"A plain UPDATE changes rows in one table. An UPDATE with JOIN changes rows based on matching data in another table — essential for keeping related tables in sync.",
+  body:`
+   <h3>Why UPDATE with JOIN?</h3>
+   <p>Suppose you have a separate Bonuses table with bonus amounts per employee, and you want to add each employee's bonus to their salary. A plain <code>UPDATE Employees SET Salary = Salary + ?</code> cannot reference the Bonuses table. That is where UPDATE with JOIN comes in.</p>
+
+   <h3>SQL Server syntax</h3>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">UPDATE e
+SET    e.Salary = e.Salary + b.Bonus
+FROM   Employees e
+JOIN   Bonuses b ON e.EmpId = b.EmpId;</pre>
+   <p>Notice the pattern: <code>UPDATE alias SET alias.col = … FROM table alias JOIN …</code>. The alias after UPDATE tells SQL Server which table's rows are being changed.</p>
+
+   <h3>Safety first — always test with SELECT first</h3>
+   <p>Before running any UPDATE, write the same logic as a SELECT to verify which rows will be affected. Replace <code>UPDATE e SET e.Salary = … FROM …</code> with <code>SELECT e.Name, e.Salary FROM …</code> to preview the changes. Only then run the UPDATE.</p>
+   <div class="note warn"><b>Always use WHERE or JOIN conditions</b>An UPDATE without a WHERE clause updates every row in the table. This is almost never what you want and can be catastrophic. Always have a limiting condition.</div>
+
+   <h3>UPDATE with a subquery (alternative)</h3>
+   <p>You can also use a subquery in the SET clause: <code>SET col = (SELECT value FROM … WHERE …)</code>. This works in all SQL databases but is less readable than the JOIN form for SQL Server.</p>`,
+  examples:[
+   {sql:`-- Give all London employees a 10% raise\nUPDATE Employees\nSET    Salary = ROUND(Salary * 1.1, 0)\nWHERE  City = 'London';\nSELECT Name, City, Salary FROM Employees WHERE City='London';`,
+    cap:"A simple UPDATE with WHERE — only London employees are affected. Run SELECT first to preview."},
+   {sql:`-- Update employee city to match their department's location\nUPDATE Employees\nSET    City = (\n  SELECT Location FROM Departments WHERE DeptId = Employees.DeptId\n)\nWHERE  DeptId IS NOT NULL;\nSELECT Name, DeptId, City FROM Employees;`,
+    cap:"Subquery in SET: each employee's City is updated to their department's Location. A correlated subquery runs per row."},
+   {sql:`-- Update salary of employees on high-budget projects\nUPDATE Employees\nSET    Salary = Salary + 5000\nWHERE  EmpId IN (\n  SELECT ep.EmpId FROM EmployeeProjects ep\n  JOIN   Projects p ON ep.ProjectId = p.ProjectId\n  WHERE  p.Budget > 200000\n);\nSELECT Name, Salary FROM Employees WHERE EmpId IN\n  (SELECT ep.EmpId FROM EmployeeProjects ep JOIN Projects p ON ep.ProjectId=p.ProjectId WHERE p.Budget>200000);`,
+    cap:"UPDATE with a subquery in WHERE — only employees on projects with budget > 200k get the raise."}
+  ],
+  quiz:[
+   {type:"sql", q:"Give every employee in the <code>IT</code> department (DeptId=1) a salary increase of 8000. Then SELECT Name and Salary for DeptId=1.",
+    expected:`UPDATE Employees SET Salary=Salary+8000 WHERE DeptId=1; SELECT Name,Salary FROM Employees WHERE DeptId=1;`,
+    explain:"WHERE DeptId=1 limits the update to IT employees only. Always specify a WHERE condition to avoid updating every row."},
+   {type:"mcq", q:"What is the safest way to verify an UPDATE before running it?",
+    options:["Run it and then ROLLBACK","Replace UPDATE/SET with SELECT to preview affected rows first","Add NOCHECK to the statement","Use DROP TABLE first"],
+    answer:0, explain:"Write the equivalent SELECT with the same FROM/WHERE/JOIN conditions to preview exactly which rows and values would change. Only run the UPDATE after confirming the SELECT output looks correct."},
+   {type:"mcq", q:"What happens if you run UPDATE Employees SET Salary = 0 with no WHERE clause?",
+    options:["Only one row is updated","Nothing happens — WHERE is required","Every single row in Employees is updated to Salary=0","An error is thrown"],
+    answer:2, explain:"Without WHERE, UPDATE applies to every row in the table. This is almost always a mistake and can be very hard to recover from without a backup."}
+  ]
+ },
+ {
+  id:"transactions", unit:38, title:"Transactions — BEGIN, COMMIT and ROLLBACK",
+  lead:"A transaction is a group of SQL statements that either all succeed together or all fail together. It is the safety net that prevents your database from ending up in a half-finished, inconsistent state.",
+  body:`
+   <h3>The classic example — a bank transfer</h3>
+   <p>Moving £500 from Account A to Account B takes two steps: deduct from A, add to B. If the deduct succeeds but the server crashes before the add, you have just lost £500 from the database. A transaction wraps both steps so they succeed or fail as one unit — no partial outcomes.</p>
+
+   <h3>ACID properties</h3>
+   <table class="tbl"><thead><tr><th>Letter</th><th>Property</th><th>Plain English</th></tr></thead><tbody>
+     <tr><td><strong>A</strong></td><td>Atomicity</td><td>All steps succeed, or none do — no half-done operations.</td></tr>
+     <tr><td><strong>C</strong></td><td>Consistency</td><td>The database moves from one valid state to another valid state.</td></tr>
+     <tr><td><strong>I</strong></td><td>Isolation</td><td>Concurrent transactions do not see each other's uncommitted changes.</td></tr>
+     <tr><td><strong>D</strong></td><td>Durability</td><td>Once committed, the data survives crashes — it is written to disk.</td></tr>
+   </tbody></table>
+
+   <h3>The three key commands</h3>
+   <ul>
+     <li><code>BEGIN TRANSACTION</code> — starts the transaction. All changes from here on are "pending".</li>
+     <li><code>COMMIT</code> — saves all pending changes permanently to the database.</li>
+     <li><code>ROLLBACK</code> — undoes all pending changes, reverting to the state at BEGIN TRANSACTION.</li>
+   </ul>
+
+   <h3>SAVEPOINT — partial rollback</h3>
+   <p>A <code>SAVEPOINT</code> marks a point within a transaction you can roll back to without undoing the entire transaction. Useful when a transaction has many steps and you only want to undo the last few.</p>
+
+   <h3>Implicit vs explicit transactions</h3>
+   <p>By default, SQL Server wraps each individual statement in its own auto-commit transaction. When you write <code>BEGIN TRANSACTION</code>, you take manual control. Always pair every BEGIN with either a COMMIT or ROLLBACK — leaving a transaction open locks resources and can block other users.</p>
+   <div class="note warn"><b>Always handle errors</b>In production code, wrap transactions in TRY…CATCH (see next topic). If your code throws an error halfway through, you need the CATCH block to issue a ROLLBACK — otherwise the transaction stays open.</div>`,
+  examples:[
+   {sql:`-- Safe multi-step operation with transaction\nBEGIN;\nUPDATE Employees SET Salary = Salary + 10000 WHERE EmpId = 1;\nUPDATE Employees SET Salary = Salary - 10000 WHERE EmpId = 2;\nSELECT EmpId, Name, Salary FROM Employees WHERE EmpId IN (1,2);\nROLLBACK;  -- undo for demo purposes\nSELECT EmpId, Name, Salary FROM Employees WHERE EmpId IN (1,2);`,
+    cap:"After COMMIT the changes persist. After ROLLBACK they are undone. Run this to see both results — first SELECT shows updated salaries, second shows the rollback."},
+   {sql:`-- Demonstrating that ROLLBACK undoes all changes\nBEGIN;\nINSERT INTO Departments VALUES (99, 'TestDept', 'TestCity');\nSELECT * FROM Departments;  -- 99 is visible within the transaction\nROLLBACK;\nSELECT * FROM Departments;  -- 99 is gone after rollback`,
+    cap:"Inside the transaction the new row is visible. After ROLLBACK it disappears as if it never existed."},
+   {sql:`-- COMMIT: make changes permanent\nBEGIN;\nINSERT INTO Departments VALUES (6, 'Analytics', 'Chennai');\nCOMMIT;\nSELECT * FROM Departments;`,
+    cap:"COMMIT makes the insert permanent. Even after a page reload or reconnect, the row will be there (in this session)."}
+  ],
+  quiz:[
+   {type:"mcq", q:"What does ROLLBACK do?",
+    options:["Saves all changes permanently","Undoes all changes made since the last BEGIN TRANSACTION","Deletes the entire table","Starts a new transaction"],
+    answer:1, explain:"ROLLBACK reverses all data changes made after BEGIN TRANSACTION, returning the database to its previous state."},
+   {type:"mcq", q:"Which ACID property ensures that a committed transaction survives a server crash?",
+    options:["Atomicity","Consistency","Isolation","Durability"],
+    answer:3, explain:"Durability guarantees that committed data is written to permanent storage and survives failures."},
+   {type:"mcq", q:"You begin a transaction, run 3 INSERT statements, and then your connection drops without a COMMIT or ROLLBACK. What happens?",
+    options:["All 3 inserts are saved","All 3 inserts are rolled back automatically","Only the first insert is saved","The database is corrupted"],
+    answer:1, explain:"SQL Server automatically rolls back any open transaction when a connection drops. Uncommitted changes are never permanently saved."},
+   {type:"text", q:"What are the four letters of the ACID acronym? List them.",
+    accept:["atomicity consistency isolation durability","acid atomicity consistency isolation durability","a c i d"],
+    explain:"ACID: Atomicity (all or nothing), Consistency (valid state to valid state), Isolation (concurrent transactions do not interfere), Durability (committed data survives crashes)."}
+  ]
+ }
+]});
+
 /*__INSERT_MODULES__*/
 const FINAL_TESTS=[];
 /*__INSERT_FINALTESTS__*/
