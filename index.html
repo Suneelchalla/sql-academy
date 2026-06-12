@@ -88,23 +88,45 @@ a:hover{text-decoration:underline}
 .nav-special a:hover{background:rgba(255,255,255,.06);text-decoration:none}
 .nav-special a.active{background:var(--ink-3);color:#fff}
 .nav-special .ic{font-size:15px;width:18px;text-align:center}
-.mod{margin-top:6px}
+.mod{margin-top:2px}
+/* ── collapsible module header ── */
 .mod-head{
-  padding:11px 22px 7px;font-family:var(--mono);font-size:10.5px;
+  padding:10px 16px 10px 20px;font-family:var(--mono);font-size:10.5px;
   letter-spacing:.13em;text-transform:uppercase;color:var(--cyan);
   display:flex;align-items:center;gap:8px;
+  cursor:pointer;border-radius:6px;margin:0 6px;
+  transition:background .14s;user-select:none;
 }
-.mod-head .mnum{color:var(--faint)}
+.mod-head:hover{background:rgba(255,255,255,.06)}
+.mod-head .mnum{color:var(--faint);flex:0 0 auto}
+.mod-head .mod-title{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mod-head .mod-arrow{
+  flex:0 0 auto;color:var(--faint);font-size:10px;
+  transition:transform .22s ease;margin-left:auto;
+}
+.mod-head .mod-count{
+  flex:0 0 auto;font-family:var(--mono);font-size:9.5px;
+  color:rgba(70,182,206,.5);letter-spacing:.04em;margin-right:2px;
+}
+.mod.open .mod-arrow{transform:rotate(180deg)}
+/* ── topic list (collapsible) ── */
+.mod-topics{
+  overflow:hidden;
+  max-height:0;
+  transition:max-height .28s cubic-bezier(.4,0,.2,1);
+}
+.mod.open .mod-topics{max-height:2000px;}
 .topic-link{
-  display:flex;align-items:center;gap:10px;padding:8px 22px 8px 24px;
-  font-size:13.5px;color:#AFBCCB;cursor:pointer;border-left:2px solid transparent;
+  display:flex;align-items:center;gap:10px;padding:7px 20px 7px 28px;
+  font-size:13px;color:#AFBCCB;cursor:pointer;border-left:2px solid transparent;
   transition:.13s;line-height:1.35;
 }
 .topic-link:hover{background:rgba(255,255,255,.045);color:#fff}
 .topic-link.active{background:rgba(70,182,206,.12);border-left-color:var(--cyan);color:#fff}
-.topic-link .tnum{font-family:var(--mono);font-size:11px;color:var(--faint);flex:0 0 auto}
+.topic-link .tnum{font-family:var(--mono);font-size:10.5px;color:var(--faint);flex:0 0 auto}
 .topic-link.active .tnum{color:var(--cyan)}
-.topic-link .check{margin-left:auto;color:var(--pass);font-size:12px;opacity:0;transition:.2s}
+.topic-link .tname{flex:1;line-height:1.3}
+.topic-link .check{margin-left:auto;color:var(--pass);font-size:11px;opacity:0;transition:.2s;flex:0 0 auto}
 .topic-link.done .check{opacity:1}
 .topic-link.done .tname{color:#7E8C9B}
 
@@ -2789,6 +2811,773 @@ JOIN   Bonuses b ON e.EmpId = b.EmpId;</pre>
  }
 ]});
 
+
+COURSE.push({
+ name:"Views & Stored Procedures", blurb:"Encapsulate logic into reusable, named database objects — views hide complexity, procedures automate work.",
+ topics:[
+ {
+  id:"views", unit:39, title:"Creating and using Views in SQL Server",
+  lead:"A view is a saved query that looks and behaves like a table. Instead of writing the same complex JOIN every time, you define it once as a view and then just SELECT from it like any other table.",
+  body:`
+   <h3>What is a view?</h3>
+   <p>Think of a view as a window into your data — it is a stored SELECT statement that you can query as if it were a table. The data is not duplicated; the view just re-runs its underlying query every time you SELECT from it.</p>
+   <p>For example, instead of always writing a 5-table JOIN to get employee details with department and manager names, you create a view called <code>vw_EmployeeDetails</code> and then just write <code>SELECT * FROM vw_EmployeeDetails</code>.</p>
+
+   <h3>Benefits of views</h3>
+   <ul>
+     <li><strong>Simplicity</strong> — hide complex JOINs and calculations behind a clean name.</li>
+     <li><strong>Security</strong> — grant users access to a view without giving them access to the underlying tables. The view can expose only certain columns (hide salaries, for example).</li>
+     <li><strong>Consistency</strong> — business logic defined once in the view is used everywhere. Change the view, and all queries using it automatically pick up the change.</li>
+     <li><strong>Reusability</strong> — write the JOIN once, use it in dozens of queries and reports.</li>
+   </ul>
+
+   <h3>Creating and using a view</h3>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">CREATE VIEW vw_EmpDept AS
+SELECT e.Name, e.Salary, d.DeptName
+FROM   Employees e
+JOIN   Departments d ON e.DeptId = d.DeptId;
+
+-- Use it exactly like a table:
+SELECT * FROM vw_EmpDept WHERE Salary > 50000;</pre>
+
+   <h3>Modifying and dropping views</h3>
+   <ul>
+     <li><code>ALTER VIEW vw_Name AS SELECT …</code> — redefine the view without dropping it first.</li>
+     <li><code>DROP VIEW vw_Name</code> — remove the view permanently (the underlying tables are not affected).</li>
+     <li><code>CREATE OR ALTER VIEW</code> — creates it if it does not exist, or replaces it if it does (SQL Server 2016+).</li>
+   </ul>
+
+   <h3>Can you INSERT/UPDATE through a view?</h3>
+   <p>Simple views (one table, no aggregates, no DISTINCT) are sometimes updatable — an UPDATE on the view updates the underlying table. Complex views with JOINs, GROUP BY, or calculations are generally read-only. In practice, treat views as read-only and do all writes directly on the base tables.</p>
+   <div class="note"><b>Naming convention</b>Prefix view names with <code>vw_</code> so anyone reading a query instantly knows they are querying a view, not a base table.</div>`,
+  examples:[
+   {sql:`-- Create a view joining employees and departments\nCREATE VIEW vw_EmpDept AS\nSELECT e.EmpId, e.Name, e.Salary, e.City,\n       d.DeptName\nFROM   Employees e\nJOIN   Departments d ON e.DeptId = d.DeptId;\n\n-- Query it like a table\nSELECT * FROM vw_EmpDept;`,
+    cap:"After creating the view, querying it is as simple as SELECT * FROM vw_EmpDept — the JOIN is hidden inside."},
+   {sql:`-- Filter and sort through the view\nCREATE VIEW vw_EmpDept2 AS\nSELECT e.EmpId, e.Name, e.Salary, d.DeptName\nFROM   Employees e\nJOIN   Departments d ON e.DeptId = d.DeptId;\n\nSELECT DeptName, COUNT(*) AS Headcount, AVG(Salary) AS AvgSal\nFROM   vw_EmpDept2\nGROUP  BY DeptName\nORDER  BY AvgSal DESC;`,
+    cap:"You can run GROUP BY, WHERE, and ORDER BY on a view just like any table."},
+   {sql:`-- Security view: hide salary, expose only name and dept\nCREATE VIEW vw_PublicEmp AS\nSELECT e.Name, e.City, d.DeptName\nFROM   Employees e\nJOIN   Departments d ON e.DeptId = d.DeptId;\n\nSELECT * FROM vw_PublicEmp;`,
+    cap:"This view deliberately excludes Salary. Users granted access to this view cannot see salary data."}
+  ],
+  quiz:[
+   {type:"sql", q:"Create a view called <code>vw_HighPaid</code> that shows <code>Name</code> and <code>Salary</code> for employees earning more than 60000. Then SELECT all rows from it.",
+    expected:`CREATE VIEW vw_HighPaid AS SELECT Name, Salary FROM Employees WHERE Salary>60000; SELECT * FROM vw_HighPaid;`,
+    explain:"The view stores the SELECT definition. Querying it re-runs that SELECT automatically."},
+   {type:"mcq", q:"When you query a view, what actually happens?",
+    options:["SQL reads from a cached copy of the data","The view's underlying SELECT query runs against the base tables","A new table is created and queried","The view returns static data saved at creation time"],
+    answer:1, explain:"A regular view is not a stored copy of data — it re-executes its SELECT against the base tables every time you query it."},
+   {type:"mcq", q:"What is a key security benefit of views?",
+    options:["They encrypt the data","You can grant access to the view without exposing the underlying tables or all columns","They prevent SQL injection","They back up your data"],
+    answer:1, explain:"Users can be granted SELECT on a view while being denied access to the base tables. The view can also hide sensitive columns like Salary or SSN."},
+   {type:"mcq", q:"Which command updates a view definition without dropping it first?",
+    options:["UPDATE VIEW","MODIFY VIEW","ALTER VIEW","REBUILD VIEW"],
+    answer:2, explain:"ALTER VIEW replaces the view definition in-place. This is safer than DROP + CREATE because any permissions granted on the view are preserved."}
+  ]
+ },
+ {
+  id:"stored-procedures", unit:40, title:"Stored Procedures in SQL Server",
+  lead:"A stored procedure is a named, saved block of SQL code that you can execute by name, pass parameters to, and call from applications. They are the workhorses of SQL Server development.",
+  body:`
+   <h3>What is a stored procedure?</h3>
+   <p>If a view is a saved SELECT, a stored procedure is a saved program — it can contain multiple SQL statements, conditional logic (IF/ELSE), loops, error handling, and more. You call it with <code>EXEC ProcedureName</code> and it runs all the statements inside.</p>
+
+   <h3>Why use stored procedures?</h3>
+   <ul>
+     <li><strong>Reusability</strong> — define business logic once, call it from any application, report, or job.</li>
+     <li><strong>Performance</strong> — SQL Server compiles and caches the execution plan on first run. Subsequent calls reuse the cached plan, making them faster than ad-hoc queries.</li>
+     <li><strong>Security</strong> — grant users EXECUTE permission on the procedure without any direct table access. The procedure controls exactly what they can do.</li>
+     <li><strong>Maintenance</strong> — change the business logic in one place (the procedure) and all callers automatically use the new version.</li>
+   </ul>
+
+   <h3>Creating a basic procedure</h3>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">CREATE PROCEDURE dbo.GetEmployeesByDept
+    @DeptId INT
+AS
+BEGIN
+    SELECT Name, Salary, City
+    FROM   Employees
+    WHERE  DeptId = @DeptId;
+END</pre>
+   <p>Call it: <code>EXEC dbo.GetEmployeesByDept @DeptId = 1;</code></p>
+
+   <h3>Parameters</h3>
+   <ul>
+     <li><strong>Input parameters</strong> (<code>@param TYPE</code>) — values passed in when calling.</li>
+     <li><strong>Default parameter values</strong> (<code>@param TYPE = default</code>) — used when the caller does not supply a value.</li>
+     <li><strong>Output parameters</strong> (<code>@param TYPE OUTPUT</code>) — return a value back to the caller.</li>
+   </ul>
+
+   <h3>Modifying and dropping</h3>
+   <p><code>ALTER PROCEDURE</code> redefines it. <code>DROP PROCEDURE</code> removes it. <code>EXEC sp_helptext ProcName</code> shows the procedure's code.</p>
+   <div class="note warn"><b>Procedures vs Functions</b>Procedures can modify data, manage transactions, and return multiple result sets. Functions can only compute and return a value — they cannot have side effects. Use procedures for "doing work", functions for "calculating a value".</div>`,
+  examples:[
+   {sql:`-- Simple procedure: get all employees in a city\nCREATE PROCEDURE GetEmpByCity\n    @City TEXT\nAS\nBEGIN\n    SELECT EmpId, Name, Salary\n    FROM   Employees\n    WHERE  City = @City;\nEND;\n\n-- Run it (SQLite uses slightly different syntax):\nCALL GetEmpByCity('London');`,
+    cap:"Define once, call many times with different cities."},
+   {run:false, sql:`-- SQL Server: procedure with default parameter\nCREATE PROCEDURE dbo.GetTopEarners\n    @MinSalary INT = 50000  -- default value\nAS\nBEGIN\n    SELECT Name, Salary\n    FROM   Employees\n    WHERE  Salary >= @MinSalary\n    ORDER  BY Salary DESC;\nEND;\n\n-- Call with explicit value:\nEXEC dbo.GetTopEarners @MinSalary = 60000;\n\n-- Call using the default (50000):\nEXEC dbo.GetTopEarners;`,
+    cap:"MS SQL only. @MinSalary defaults to 50000 when not supplied."},
+   {run:false, sql:`-- Output parameter: return a count back to the caller\nCREATE PROCEDURE dbo.GetDeptCount\n    @DeptId   INT,\n    @EmpCount INT OUTPUT\nAS\nBEGIN\n    SELECT @EmpCount = COUNT(*)\n    FROM   Employees\n    WHERE  DeptId = @DeptId;\nEND;\n\n-- Calling it:\nDECLARE @cnt INT;\nEXEC dbo.GetDeptCount @DeptId=1, @EmpCount=@cnt OUTPUT;\nSELECT @cnt AS HeadcountInIT;`,
+    cap:"MS SQL only. @EmpCount OUTPUT sends a value back to the calling code."}
+  ],
+  quiz:[
+   {type:"mcq", q:"What command do you use to execute a stored procedure in SQL Server?",
+    options:["RUN","CALL","EXEC","START"],
+    answer:2, explain:"EXEC (short for EXECUTE) runs a stored procedure. CALL is used in MySQL/PostgreSQL but not SQL Server."},
+   {type:"mcq", q:"Why do stored procedures improve performance compared to sending raw SQL from an application?",
+    options:["They skip security checks","SQL Server compiles and caches the execution plan on first run — subsequent calls reuse it","They always return fewer rows","They disable indexes"],
+    answer:1, explain:"The query plan is compiled once and cached. Re-using the cached plan avoids the parse-and-compile overhead on every call."},
+   {type:"mcq", q:"What is an OUTPUT parameter used for?",
+    options:["To pass a value into the procedure","To print debug messages","To return a value back to the caller","To display results in a grid"],
+    answer:2, explain:"OUTPUT parameters send a value back from the procedure to the calling code — useful for returning counts, generated IDs, or status codes."},
+   {type:"mcq", q:"What is the main difference between a stored procedure and a view?",
+    options:["Views can take parameters; procedures cannot","Procedures can contain multiple statements, logic, and data modification; views are just saved SELECT queries","They are identical","Views are faster"],
+    answer:1, explain:"A view is essentially a named SELECT. A stored procedure is a full program — it can contain multiple statements, IF/ELSE, loops, INSERT/UPDATE/DELETE, transactions, and error handling."}
+  ]
+ },
+ {
+  id:"triggers", unit:41, title:"Triggers in SQL Server",
+  lead:"A trigger is SQL code that runs automatically when something happens to a table — an INSERT, UPDATE, or DELETE. You do not call triggers; they fire on their own.",
+  body:`
+   <h3>What is a trigger?</h3>
+   <p>Imagine you want to automatically log every change made to an Employees table — who changed what, and when. You could rely on every application to call a logging procedure, but that is fragile. A trigger solves this at the database level: every time any INSERT, UPDATE, or DELETE happens on Employees, the trigger fires automatically, regardless of which application or user caused the change.</p>
+
+   <h3>The two special tables inside a trigger</h3>
+   <p>Inside a trigger body, SQL Server provides two virtual tables:</p>
+   <ul>
+     <li><strong>INSERTED</strong> — contains the new rows (after an INSERT or UPDATE).</li>
+     <li><strong>DELETED</strong> — contains the old rows (before a DELETE or UPDATE).</li>
+   </ul>
+   <p>For an UPDATE, both tables are populated — DELETED has the old values, INSERTED has the new values. This is how you see what changed.</p>
+
+   <h3>AFTER vs INSTEAD OF triggers</h3>
+   <table class="tbl"><thead><tr><th>Type</th><th>When it fires</th><th>Common use</th></tr></thead><tbody>
+     <tr><td><strong>AFTER</strong> (default)</td><td>After the DML operation completes</td><td>Audit logging, cascading updates, validation after the fact</td></tr>
+     <tr><td><strong>INSTEAD OF</strong></td><td>Instead of the DML — the trigger runs, the original statement does not</td><td>Making views updatable, complex validation that prevents the operation</td></tr>
+   </tbody></table>
+
+   <h3>When to use triggers — and when not to</h3>
+   <p>Triggers are powerful but can make systems hard to debug because they run invisibly. Use them for: audit trails, enforcing complex business rules the database constraint system cannot express, and keeping denormalised summary columns in sync. Avoid them for: simple logic that can go in application code, performance-critical paths, and logic that needs to be visible and obvious.</p>
+   <div class="note warn"><b>Triggers fire once per statement, not once per row</b>If an UPDATE affects 1000 rows, the trigger fires once and INSERTED/DELETED each contain 1000 rows — not once per row. Write your trigger logic to handle sets of rows, not single-row assumptions.</div>`,
+  examples:[
+   {run:false, sql:`-- Audit trigger: log every salary change\nCREATE TABLE SalaryAudit(\n  AuditId   INT IDENTITY PRIMARY KEY,\n  EmpId     INT, OldSalary INT, NewSalary INT,\n  ChangedAt DATETIME2 DEFAULT GETDATE()\n);\n\nCREATE TRIGGER trg_SalaryChange\nON  Employees\nAFTER UPDATE\nAS\nBEGIN\n  IF UPDATE(Salary)  -- only fire when Salary column changed\n  INSERT INTO SalaryAudit(EmpId, OldSalary, NewSalary)\n  SELECT d.EmpId, d.Salary, i.Salary\n  FROM   DELETED d\n  JOIN   INSERTED i ON d.EmpId = i.EmpId\n  WHERE  d.Salary <> i.Salary;\nEND;`,
+    cap:"MS SQL only. Every salary change is automatically recorded in SalaryAudit. DELETED has old salary, INSERTED has new."},
+   {run:false, sql:`-- INSTEAD OF trigger: prevent deleting managers\nCREATE TRIGGER trg_NoDeleteManager\nON  Employees\nINSTEAD OF DELETE\nAS\nBEGIN\n  IF EXISTS (\n    SELECT 1 FROM DELETED d\n    JOIN Employees e ON e.ManagerId = d.EmpId\n  )\n  BEGIN\n    RAISERROR('Cannot delete a manager who still has direct reports.',16,1);\n    RETURN;\n  END\n  DELETE FROM Employees WHERE EmpId IN (SELECT EmpId FROM DELETED);\nEND;`,
+    cap:"MS SQL only. INSTEAD OF intercepts the DELETE — if the employee is a manager of others, the delete is blocked with an error."},
+   {run:false, sql:`-- View trigger data: query INSERTED and DELETED (conceptual)\n-- Inside a trigger body you can SELECT from these virtual tables:\nSELECT * FROM INSERTED;  -- new/updated rows\nSELECT * FROM DELETED;   -- old/deleted rows`,
+    cap:"MS SQL only. These virtual tables only exist inside trigger code — you cannot query them outside a trigger."}
+  ],
+  quiz:[
+   {type:"mcq", q:"Which virtual table contains the OLD values before an UPDATE in a trigger?",
+    options:["INSERTED","UPDATED","DELETED","BEFORE"],
+    answer:2, explain:"DELETED holds the before-image (old values). INSERTED holds the after-image (new values). For UPDATE, both are populated."},
+   {type:"mcq", q:"An INSTEAD OF trigger fires at which point?",
+    options:["After the DML completes","Before the DML — and the original statement is replaced by the trigger body","After a SELECT","Only on DELETE"],
+    answer:1, explain:"INSTEAD OF means the trigger body runs in place of the original INSERT/UPDATE/DELETE. The original statement does not execute unless the trigger explicitly performs it."},
+   {type:"mcq", q:"A single UPDATE statement changes 500 rows. How many times does an AFTER trigger on that table fire?",
+    options:["500 times — once per row","Once — INSERTED and DELETED each contain 500 rows","Zero — triggers only fire on INSERT","Twice — once for INSERTED, once for DELETED"],
+    answer:1, explain:"DML triggers fire once per statement regardless of how many rows are affected. The INSERTED and DELETED tables hold all affected rows as a set."},
+   {type:"mcq", q:"Which is the best use case for a trigger?",
+    options:["Running a daily report","Automatically logging every data change to an audit table","Replacing all stored procedures","Speeding up SELECT queries"],
+    answer:1, explain:"Audit logging is the classic trigger use case — it captures every change at the database level regardless of which application or user made the change."}
+  ]
+ }
+]});
+COURSE.push({
+ name:"Indexes & Performance", blurb:"Understand how SQL Server finds data fast — and how to stop writing queries that make it crawl.",
+ topics:[
+ {
+  id:"indexes", unit:42, title:"What is an index and how does it work?",
+  lead:"An index is a data structure that helps SQL Server find rows fast without scanning every row in a table. Understanding indexes is the single biggest step you can take to improve query performance.",
+  body:`
+   <h3>The library analogy</h3>
+   <p>Imagine a library with 100,000 books. Without any catalogue, finding a book means walking every aisle. With a catalogue sorted by author, you jump straight to the right section. A database index is that catalogue — it lets SQL Server jump straight to the rows you want instead of reading every row.</p>
+
+   <h3>How SQL Server actually searches without an index</h3>
+   <p>Without an index on the column you filter by, SQL Server does a <strong>full table scan</strong> — it reads every single row and checks each one. On a table with 10 million rows, that is 10 million reads. With an appropriate index, it might read only 3–4 pages.</p>
+
+   <h3>Clustered vs Non-clustered indexes</h3>
+   <table class="tbl"><thead><tr><th></th><th>Clustered Index</th><th>Non-clustered Index</th></tr></thead><tbody>
+     <tr><td>How many per table?</td><td>Only ONE</td><td>Up to 999</td></tr>
+     <tr><td>Data storage</td><td>The table rows ARE physically sorted by this index</td><td>A separate structure that points to the actual rows</td></tr>
+     <tr><td>Analogy</td><td>The book itself — pages are in order</td><td>The index at the back of the book — entries point to page numbers</td></tr>
+     <tr><td>Created automatically on</td><td>PRIMARY KEY (by default)</td><td>UNIQUE constraints, or manually created</td></tr>
+     <tr><td>Best for</td><td>Range queries — WHERE HireDate BETWEEN x AND y</td><td>Equality lookups — WHERE Email = x</td></tr>
+   </tbody></table>
+
+   <h3>Creating an index</h3>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">-- Non-clustered index on Email (fast lookups by email)
+CREATE INDEX IX_Employees_Email
+ON Employees (Email);
+
+-- Composite index (covers both columns in WHERE)
+CREATE INDEX IX_Employees_CityDept
+ON Employees (City, DeptId);</pre>
+
+   <h3>When indexes hurt performance</h3>
+   <p>Indexes are not free. Every INSERT, UPDATE, and DELETE must also update all indexes on that table. A table with 20 indexes on a frequently-written table can be slower to write than a table with 2 indexes. Index wisely — add them where queries are slow, not on every column "just in case".</p>
+   <div class="note"><b>The golden rule</b>Index columns that appear in WHERE, JOIN ON, and ORDER BY clauses. Do not index columns that are rarely filtered on, or columns with very few distinct values (like a Gender column with only Male/Female).</div>`,
+  examples:[
+   {sql:`-- See how many rows a table has (baseline for thinking about indexes)\nSELECT COUNT(*) AS TotalRows FROM Employees;\nSELECT COUNT(*) AS TotalOrders FROM Orders;`,
+    cap:"Small tables rarely need indexes — SQL Server scans them in microseconds anyway. Indexes matter as tables grow to thousands or millions of rows."},
+   {sql:`-- Create a non-clustered index and use it\nCREATE INDEX IX_Employees_City ON Employees(City);\n\n-- This query can now use the index instead of scanning all rows\nSELECT Name, Salary FROM Employees WHERE City = 'London';`,
+    cap:"After creating the index, queries filtering by City can use it for fast lookup. In a large table this makes an enormous difference."},
+   {sql:`-- Composite index: both columns available for filtering\nCREATE INDEX IX_Emp_DeptCity ON Employees(DeptId, City);\n\n-- Uses the index (leading column DeptId is in WHERE)\nSELECT Name FROM Employees WHERE DeptId = 1;\n\n-- Also uses the index (both columns used)\nSELECT Name FROM Employees WHERE DeptId = 1 AND City = 'London';`,
+    cap:"A composite index helps queries that filter on the leading column or both columns. The order of columns in the index definition matters."}
+  ],
+  quiz:[
+   {type:"mcq", q:"What is a full table scan?",
+    options:["Reading only the indexed rows","Reading every row in the table to find matching ones","Deleting all rows","Rebuilding the table structure"],
+    answer:1, explain:"A full table scan reads every row in the table. It happens when there is no suitable index. On large tables this is very slow."},
+   {type:"mcq", q:"How many clustered indexes can a table have?",
+    options:["Unlimited","Up to 999","Exactly one","None — only non-clustered are allowed"],
+    answer:2, explain:"A table can have only one clustered index because the clustered index determines the physical sort order of the rows — and rows can only be physically sorted one way."},
+   {type:"mcq", q:"Which columns are best candidates for indexing?",
+    options:["All columns in the table","Columns that appear in WHERE, JOIN ON, and ORDER BY clauses","Primary key columns only","Columns with only 2 or 3 distinct values"],
+    answer:1, explain:"Index columns used in filtering and joining — WHERE, JOIN ON, ORDER BY. Indexing every column wastes space and slows down writes."},
+   {type:"mcq", q:"Why can too many indexes slow down INSERT and UPDATE operations?",
+    options:["Indexes lock the table permanently","Every write must also update all indexes on that table","Indexes increase row size","SQL Server rebuilds all indexes on every write"],
+    answer:1, explain:"Every time a row is inserted, updated, or deleted, SQL Server must update every index that covers that table. More indexes = more work per write."}
+  ]
+ },
+ {
+  id:"execution-plans", unit:43, title:"Reading execution plans and common performance mistakes",
+  lead:"An execution plan shows you exactly how SQL Server will run your query — which indexes it uses, where it does table scans, and where the bottlenecks are. Reading them is a superpower for fixing slow queries.",
+  body:`
+   <h3>What is an execution plan?</h3>
+   <p>When you run a query, SQL Server does not just run it blindly. It first consults the query optimiser, which considers multiple ways to execute the query (which indexes to use, in what order to join tables) and picks the cheapest plan. The execution plan is that chosen strategy, presented visually in SSMS.</p>
+
+   <h3>How to see the execution plan in SSMS</h3>
+   <ul>
+     <li>Press <code>Ctrl+M</code> before running a query to see the <strong>actual execution plan</strong> (runs the query and shows real statistics).</li>
+     <li>Press <code>Ctrl+L</code> to see the <strong>estimated execution plan</strong> (does not run — just shows what SQL Server would do).</li>
+     <li>Look for <strong>thick arrows</strong> (many rows flowing) and <strong>warning triangles</strong> (problem areas).</li>
+   </ul>
+
+   <h3>Key operators to know</h3>
+   <table class="tbl"><thead><tr><th>Operator</th><th>Meaning</th><th>Good or bad?</th></tr></thead><tbody>
+     <tr><td><strong>Index Seek</strong></td><td>Used the index to jump directly to matching rows</td><td>✅ Fast — this is what you want</td></tr>
+     <tr><td><strong>Index Scan</strong></td><td>Read all rows in the index</td><td>⚠️ Acceptable on small tables, slow on large ones</td></tr>
+     <tr><td><strong>Table Scan</strong></td><td>Read every row in the table (no index used)</td><td>❌ Slow — add an index to fix this</td></tr>
+     <tr><td><strong>Key Lookup</strong></td><td>Extra step to fetch columns not in the index</td><td>⚠️ May indicate a missing covered index</td></tr>
+     <tr><td><strong>Hash Match</strong></td><td>Used hashing to join two large sets</td><td>⚠️ Can be slow — check if a better join order exists</td></tr>
+     <tr><td><strong>Sort</strong></td><td>Sorted rows in memory/tempdb</td><td>⚠️ Expensive — an index on the ORDER BY column avoids this</td></tr>
+   </tbody></table>
+
+   <h3>The 7 most common performance mistakes</h3>
+   <ol>
+     <li><strong>SELECT *</strong> — fetches every column including ones you do not need. Always list only the columns required.</li>
+     <li><strong>Functions on indexed columns in WHERE</strong> — <code>WHERE YEAR(HireDate) = 2020</code> prevents index use. Rewrite as <code>WHERE HireDate >= '2020-01-01' AND HireDate < '2021-01-01'</code>.</li>
+     <li><strong>Leading wildcard in LIKE</strong> — <code>WHERE Name LIKE '%Smith'</code> cannot use an index. <code>LIKE 'Smith%'</code> can.</li>
+     <li><strong>NOT IN with NULLs</strong> — if the subquery can return NULL, NOT IN returns no rows at all. Use NOT EXISTS instead.</li>
+     <li><strong>Missing indexes on JOIN columns</strong> — always index the columns you join on.</li>
+     <li><strong>Too many columns in SELECT in a subquery</strong> — a subquery only needs the columns it uses, not SELECT *.</li>
+     <li><strong>Implicit type conversion</strong> — comparing a VARCHAR column to an INT causes SQL Server to convert every row, defeating the index.</li>
+   </ol>`,
+  examples:[
+   {sql:`-- Bad: function on filtered column defeats index\n-- SLOW: WHERE UPPER(City) = 'LONDON'\n-- FAST: store data consistently and filter directly\nSELECT Name, City FROM Employees WHERE City = 'London';\n\n-- Bad: leading wildcard\n-- SLOW: WHERE Name LIKE '%eve'\n-- FAST: avoid leading wildcard where possible\nSELECT Name FROM Employees WHERE Name LIKE 'S%';`,
+    cap:"The second example (LIKE 'S%') can use an index; LIKE '%eve' cannot — it must scan every row."},
+   {sql:`-- SELECT * vs specific columns\n-- Bad practice:\nSELECT * FROM Employees WHERE DeptId = 1;\n\n-- Good practice (only fetch what you need):\nSELECT Name, Salary FROM Employees WHERE DeptId = 1;`,
+    cap:"Fetching only needed columns reduces I/O, network traffic, and memory use — especially important on wide tables."},
+   {sql:`-- NOT IN vs NOT EXISTS (NULL safety)\n-- This can behave unexpectedly if DeptId has NULLs:\nSELECT Name FROM Employees\nWHERE DeptId NOT IN (SELECT DeptId FROM Departments WHERE Location = 'London');\n\n-- Safer equivalent with NOT EXISTS:\nSELECT Name FROM Employees e\nWHERE NOT EXISTS (\n  SELECT 1 FROM Departments d\n  WHERE d.DeptId = e.DeptId AND d.Location = 'London'\n);`,
+    cap:"NOT IN with a subquery that can return NULL yields no rows — a silent bug. NOT EXISTS handles NULLs correctly."}
+  ],
+  quiz:[
+   {type:"mcq", q:"In an execution plan, which operator is the best outcome when filtering on an indexed column?",
+    options:["Table Scan","Index Scan","Index Seek","Hash Match"],
+    answer:2, explain:"Index Seek jumps directly to matching rows using the index — it is the most efficient operation and what you aim for."},
+   {type:"mcq", q:"Why does WHERE UPPER(City) = 'LONDON' perform poorly even if City is indexed?",
+    options:["UPPER is not a valid function","Applying a function to the column prevents the index from being used — SQL Server must compute UPPER for every row","SQL Server does not support string comparisons","The index only works with numbers"],
+    answer:1, explain:"When you wrap an indexed column in a function, SQL Server cannot use the index directly — it must evaluate the function for every row, causing a full scan. Store data consistently and filter directly."},
+   {type:"mcq", q:"What is the risk of using NOT IN when the subquery can return NULL values?",
+    options:["It throws a syntax error","NOT IN with NULLs returns no rows at all — a silent bug","It is slower but correct","NULL is treated as 0"],
+    answer:1, explain:"NOT IN (... NULL ...) evaluates as NOT IN (... UNKNOWN ...) which is UNKNOWN — so no rows pass the filter. Use NOT EXISTS to safely handle NULLs."},
+   {type:"mcq", q:"Which LIKE pattern CAN use an index?",
+    options:["LIKE '%Smith'","LIKE '%Smith%'","LIKE 'Smith%'","LIKE '%S%'"],
+    answer:2, explain:"Only a trailing wildcard (Smith%) allows an index seek — the engine knows rows start with 'Smith'. A leading wildcard forces a full scan because any row could match."}
+  ]
+ }
+]});
+COURSE.push({
+ name:"Advanced SQL Techniques", blurb:"PIVOT, set operations, and recursive queries — the advanced patterns used in real reporting and analytics.",
+ topics:[
+ {
+  id:"pivot-unpivot", unit:44, title:"PIVOT and UNPIVOT in SQL Server",
+  lead:"PIVOT rotates rows into columns — turning a list of values into a spreadsheet-style crosstab report. UNPIVOT does the reverse. These are essential for reporting and data transformation.",
+  body:`
+   <h3>The problem PIVOT solves</h3>
+   <p>Imagine you want a report that shows total salary per department — but instead of rows, you want each department as a separate column. Normal SQL gives you rows. PIVOT converts those rows into column headers.</p>
+   <p>Before PIVOT (rows):</p>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">DeptName    TotalSalary
+IT          235000
+HR          170000
+Payroll     60000</pre>
+   <p>After PIVOT (columns):</p>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">IT       HR       Payroll
+235000   170000   60000</pre>
+
+   <h3>The PIVOT syntax</h3>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">SELECT [col1], [col2], [col3]
+FROM   source_table
+PIVOT (
+  aggregate_function(value_column)
+  FOR pivot_column IN ([col1],[col2],[col3])
+) AS pivot_alias;</pre>
+   <p>The three parts you fill in: (1) what to aggregate, (2) which column's values become the new column names, (3) which specific values to turn into columns.</p>
+
+   <h3>UNPIVOT — the reverse</h3>
+   <p>UNPIVOT takes columns and converts them back into rows. If you have a wide table with columns Jan, Feb, Mar containing monthly sales, UNPIVOT creates a MonthName and SalesAmount column pair — one row per month.</p>
+
+   <h3>Simulating PIVOT with CASE WHEN</h3>
+   <p>When you do not know column names in advance (dynamic PIVOT), or when writing portable SQL, you can simulate PIVOT using CASE WHEN inside aggregates — the conditional aggregation pattern from the CASE WHEN lesson.</p>`,
+  examples:[
+   {sql:`-- Simulate PIVOT with CASE (works in SQLite + SQL Server)\nSELECT\n  SUM(CASE WHEN DeptId=1 THEN Salary ELSE 0 END) AS IT,\n  SUM(CASE WHEN DeptId=2 THEN Salary ELSE 0 END) AS HR,\n  SUM(CASE WHEN DeptId=3 THEN Salary ELSE 0 END) AS Payroll,\n  SUM(CASE WHEN DeptId=4 THEN Salary ELSE 0 END) AS Sales\nFROM Employees\nWHERE DeptId IS NOT NULL;`,
+    cap:"CASE WHEN inside SUM simulates PIVOT — each column holds the total salary for one department."},
+   {run:false, sql:`-- True PIVOT syntax (SQL Server only)\nSELECT [IT],[HR],[Payroll],[Sales]\nFROM (\n  SELECT e.Salary, d.DeptName\n  FROM   Employees e\n  JOIN   Departments d ON e.DeptId=d.DeptId\n) src\nPIVOT (\n  SUM(Salary)\n  FOR DeptName IN ([IT],[HR],[Payroll],[Sales])\n) pvt;`,
+    cap:"MS SQL only. DeptName values become column headers; SUM(Salary) is the aggregated value in each cell."},
+   {sql:`-- Unpivot-style: normalize a wide structure into rows\n-- Imagine a table with separate columns per metric\nSELECT Name, 'Salary' AS Metric, CAST(Salary AS TEXT) AS Value FROM Employees\nUNION ALL\nSELECT Name, 'Age',    CAST(Age    AS TEXT)          FROM Employees\nUNION ALL\nSELECT Name, 'EmpId',  CAST(EmpId  AS TEXT)          FROM Employees\nORDER BY Name, Metric;`,
+    cap:"UNION ALL simulates UNPIVOT — multiple columns become rows with a Metric/Value structure."}
+  ],
+  quiz:[
+   {type:"mcq", q:"What does PIVOT do to a query result?",
+    options:["Sorts the rows","Turns unique values in a column into separate column headers","Joins two tables","Removes duplicate rows"],
+    answer:1, explain:"PIVOT rotates rows into columns — values that appeared as rows in a column become the column names in the output."},
+   {type:"sql", q:"Using CASE WHEN, return a single row showing the total salary for DeptId=1 as <code>IT</code> and total salary for DeptId=2 as <code>HR</code>.",
+    expected:`SELECT SUM(CASE WHEN DeptId=1 THEN Salary ELSE 0 END) AS IT, SUM(CASE WHEN DeptId=2 THEN Salary ELSE 0 END) AS HR FROM Employees;`,
+    explain:"Conditional aggregation with CASE WHEN inside SUM simulates a PIVOT — each column sums only the rows matching that department."},
+   {type:"mcq", q:"When would you use CASE WHEN instead of true PIVOT syntax?",
+    options:["Always — CASE WHEN is faster","When the column names are not known in advance (dynamic pivot) or when writing portable SQL","PIVOT is always better","CASE WHEN cannot aggregate"],
+    answer:1, explain:"True PIVOT requires you to hard-code the column values. When values are dynamic (not known at query-write time) or when you need portability, the CASE WHEN approach is more flexible."}
+  ]
+ },
+ {
+  id:"except-intersect", unit:45, title:"EXCEPT and INTERSECT — set difference and intersection",
+  lead:"EXCEPT and INTERSECT are set operators that compare two result sets. EXCEPT finds rows in the first set but not the second. INTERSECT finds rows that appear in both.",
+  body:`
+   <h3>The three set operators together</h3>
+   <table class="tbl"><thead><tr><th>Operator</th><th>Returns</th><th>Real-world example</th></tr></thead><tbody>
+     <tr><td><code>UNION</code></td><td>All rows from both (with deduplication)</td><td>All employees AND all customers in one list</td></tr>
+     <tr><td><code>INTERSECT</code></td><td>Only rows that appear in BOTH result sets</td><td>Cities that have both employees AND customers</td></tr>
+     <tr><td><code>EXCEPT</code></td><td>Rows in the FIRST set but NOT in the second</td><td>Cities that have employees but NO customers</td></tr>
+   </tbody></table>
+
+   <h3>INTERSECT — the overlap</h3>
+   <p>Think of a Venn diagram — INTERSECT is the middle section where both circles overlap. It returns only rows that exist in both queries.</p>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">SELECT City FROM Employees
+INTERSECT
+SELECT City FROM Customers;</pre>
+
+   <h3>EXCEPT — the difference</h3>
+   <p>EXCEPT is the left circle minus the overlap — rows in the first query that do not appear in the second. Order matters: A EXCEPT B is different from B EXCEPT A.</p>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">-- Cities with employees but no customers:
+SELECT City FROM Employees
+EXCEPT
+SELECT City FROM Customers;</pre>
+
+   <h3>Rules (same as UNION)</h3>
+   <ul>
+     <li>Same number of columns in both SELECT statements.</li>
+     <li>Compatible data types in matching positions.</li>
+     <li>Both operators remove duplicates automatically (like UNION, not UNION ALL).</li>
+     <li>One ORDER BY at the end of the whole statement.</li>
+   </ul>
+
+   <h3>EXCEPT vs NOT IN / NOT EXISTS</h3>
+   <p>EXCEPT is a cleaner, more readable alternative to NOT IN for comparing whole rows. However, EXCEPT compares entire rows (all columns), whereas NOT IN / NOT EXISTS lets you compare on specific columns with more flexibility.</p>`,
+  examples:[
+   {sql:`-- INTERSECT: cities that appear in both tables\nSELECT City FROM Employees\nINTERSECT\nSELECT City FROM Customers;`,
+    cap:"Returns only cities that exist in both the Employees and Customers tables. Duplicates are removed automatically."},
+   {sql:`-- EXCEPT: cities with employees but no customers\nSELECT City FROM Employees\nEXCEPT\nSELECT City FROM Customers;`,
+    cap:"Cities that appear in Employees but NOT in Customers. London appears in both, so it is excluded."},
+   {sql:`-- Compare EXCEPT to NOT IN approach\n-- Using EXCEPT:\nSELECT City FROM Employees\nEXCEPT\nSELECT City FROM Customers;\n\n-- Equivalent using NOT IN:\nSELECT DISTINCT City FROM Employees\nWHERE City NOT IN (SELECT City FROM Customers);`,
+    cap:"Both queries return the same result. EXCEPT is cleaner; NOT IN gives more control when columns differ."}
+  ],
+  quiz:[
+   {type:"sql", q:"Return the cities that appear in the <code>Customers</code> table but do NOT appear in the <code>Employees</code> table.",
+    expected:`SELECT City FROM Customers EXCEPT SELECT City FROM Employees;`,
+    explain:"EXCEPT returns rows from the first SELECT that do not appear in the second. Order matters: Customers EXCEPT Employees gives Customer-only cities."},
+   {type:"sql", q:"Return the cities that appear in BOTH the <code>Employees</code> and <code>Customers</code> tables.",
+    expected:`SELECT City FROM Employees INTERSECT SELECT City FROM Customers;`,
+    explain:"INTERSECT returns only rows that exist in both result sets — the overlap between the two city lists."},
+   {type:"mcq", q:"What is the key difference between EXCEPT and NOT IN?",
+    options:["They are identical","EXCEPT compares entire rows; NOT IN compares a specific column and handles NULLs differently","EXCEPT is faster always","NOT IN works across multiple tables"],
+    answer:1, explain:"EXCEPT compares full row sets and automatically handles NULLs as equal. NOT IN compares a single column and breaks silently when NULLs are present in the subquery."},
+   {type:"mcq", q:"Does INTERSECT automatically remove duplicate rows?",
+    options:["No — it keeps all duplicates","Yes — like UNION (not UNION ALL), it returns distinct rows only","Only if you add DISTINCT","Only when both tables are identical"],
+    answer:1, explain:"INTERSECT, like UNION and EXCEPT, always returns distinct rows. There is no INTERSECT ALL in SQL Server."}
+  ]
+ },
+ {
+  id:"recursive-cte", unit:46, title:"Recursive CTEs — querying hierarchical data",
+  lead:"A recursive CTE is a CTE that references itself, allowing you to walk hierarchical or tree-structured data — like an org chart, a bill of materials, or a folder tree — without knowing how deep the hierarchy goes.",
+  body:`
+   <h3>What kind of data needs recursion?</h3>
+   <p>The Employees table has a <code>ManagerId</code> column that points back to <code>EmpId</code>. Mark is the CEO with no manager. Several people report to Mark. Others report to those people. The hierarchy can be any number of levels deep. To display the full org chart, you need to walk down the tree level by level — that is what a recursive CTE does.</p>
+
+   <h3>The structure of a recursive CTE</h3>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">WITH cte_name AS (
+  -- 1. Anchor member: the starting point (no recursion)
+  SELECT ... FROM table WHERE base_condition
+
+  UNION ALL
+
+  -- 2. Recursive member: references the CTE itself
+  SELECT ... FROM table
+  JOIN cte_name ON join_condition  -- self-reference!
+)
+SELECT * FROM cte_name;</pre>
+
+   <h3>How it works step by step</h3>
+   <ol>
+     <li>The <strong>anchor member</strong> runs first and produces the root rows (e.g. the CEO with no manager).</li>
+     <li>The <strong>recursive member</strong> joins the CTE result back to the table to find the next level (direct reports of the CEO).</li>
+     <li>Step 2 repeats using the previous step's result — finding reports of reports — until no new rows are produced.</li>
+     <li>All results from all iterations are combined with UNION ALL.</li>
+   </ol>
+
+   <h3>Safety: MAXRECURSION</h3>
+   <p>SQL Server limits recursion to 100 levels by default to prevent infinite loops. If your hierarchy is deeper, add <code>OPTION (MAXRECURSION 0)</code> to remove the limit (use with caution). A circular reference (A → B → A) causes infinite recursion — always add a recursion level counter and limit it in production code.</p>`,
+  examples:[
+   {sql:`-- Org chart: find all employees under manager EmpId=1 (Mark)\nWITH OrgChart AS (\n  -- Anchor: the top-level manager\n  SELECT EmpId, Name, ManagerId, 0 AS Level\n  FROM   Employees\n  WHERE  ManagerId IS NULL\n\n  UNION ALL\n\n  -- Recursive: find direct reports of each level\n  SELECT e.EmpId, e.Name, e.ManagerId, oc.Level + 1\n  FROM   Employees e\n  JOIN   OrgChart oc ON e.ManagerId = oc.EmpId\n)\nSELECT EmpId, Name, Level FROM OrgChart ORDER BY Level, Name;`,
+    cap:"Level 0 = top management (no manager). Level 1 = their direct reports. Level 2 = those reports' reports, etc."},
+   {sql:`-- Find the chain of managers above a specific employee\nWITH ManagerChain AS (\n  -- Anchor: start from the employee\n  SELECT EmpId, Name, ManagerId, 0 AS Depth\n  FROM   Employees WHERE Name = 'Steve'\n\n  UNION ALL\n\n  -- Recursive: go up to each manager\n  SELECT e.EmpId, e.Name, e.ManagerId, mc.Depth + 1\n  FROM   Employees e\n  JOIN   ManagerChain mc ON e.EmpId = mc.ManagerId\n)\nSELECT Name, Depth AS LevelsAbove\nFROM   ManagerChain\nORDER  BY Depth;`,
+    cap:"Starts from Steve and climbs up the management chain. Depth 0 = Steve, Depth 1 = Steve's manager, and so on."},
+   {sql:`-- Count how many reports each manager has (direct only)\nSELECT m.Name AS Manager,\n       COUNT(e.EmpId) AS DirectReports\nFROM   Employees m\nJOIN   Employees e ON e.ManagerId = m.EmpId\nGROUP  BY m.Name\nORDER  BY DirectReports DESC;`,
+    cap:"A simpler self-join to count direct reports only — no recursion needed for just one level."}
+  ],
+  quiz:[
+   {type:"sql", q:"Write a recursive CTE called <code>Hierarchy</code> that starts from employees with no manager (anchor) and recursively finds all employees reporting to them. Return <code>Name</code> and <code>Level</code> (0 for top, 1 for next, etc.).",
+    expected:`WITH Hierarchy AS (SELECT EmpId,Name,ManagerId,0 AS Level FROM Employees WHERE ManagerId IS NULL UNION ALL SELECT e.EmpId,e.Name,e.ManagerId,h.Level+1 FROM Employees e JOIN Hierarchy h ON e.ManagerId=h.EmpId) SELECT Name,Level FROM Hierarchy ORDER BY Level,Name;`,
+    explain:"Anchor selects roots (no manager). Recursive member joins Employees to the CTE on ManagerId=EmpId to find the next level. UNION ALL combines all iterations."},
+   {type:"mcq", q:"What is the purpose of the anchor member in a recursive CTE?",
+    options:["It limits the recursion depth","It provides the starting rows — the base case that does not reference the CTE itself","It joins to another table","It terminates the recursion"],
+    answer:1, explain:"The anchor member is the non-recursive starting query. It runs first and provides the initial rows that the recursive member then builds upon."},
+   {type:"mcq", q:"What happens if a recursive CTE has a circular reference (A reports to B, B reports to A)?",
+    options:["It returns an empty result","It automatically detects the loop and stops","It runs infinitely until SQL Server stops it at the MAXRECURSION limit","It returns only A"],
+    answer:2, explain:"SQL Server stops at the MAXRECURSION limit (default 100) and throws an error. Always ensure your data has no cycles, or add a visited-nodes guard in production recursive CTEs."},
+   {type:"mcq", q:"What does UNION ALL in a recursive CTE do, as opposed to UNION?",
+    options:["UNION ALL removes duplicates","UNION ALL keeps all rows including duplicates — required for recursion to work correctly","They are interchangeable in CTEs","UNION ALL terminates recursion faster"],
+    answer:1, explain:"Recursive CTEs must use UNION ALL. Using UNION would try to deduplicate across all recursion levels which breaks the mechanism and causes errors in SQL Server."}
+  ]
+ }
+]});
+
+
+COURSE.push({
+ name:"Dynamic SQL & Cursors", blurb:"Build queries at runtime and process rows one at a time — powerful but use with care.",
+ topics:[
+ {
+  id:"dynamic-sql", unit:47, title:"Dynamic SQL — EXEC and sp_executesql",
+  lead:"Dynamic SQL lets you build a query as a text string at runtime and then execute it. This is essential when you do not know table names, column names, or filter values until the code runs.",
+  body:`
+   <h3>What is dynamic SQL?</h3>
+   <p>Normally you write SQL with fixed table and column names. But sometimes the logic needs to be flexible — for example, building a search procedure where the user can filter by any combination of columns, or a reporting tool that queries a different table each month. Dynamic SQL solves this by constructing the SQL as a string and running it.</p>
+
+   <h3>Two ways to execute dynamic SQL</h3>
+   <table class="tbl"><thead><tr><th></th><th>EXEC(string)</th><th>sp_executesql</th></tr></thead><tbody>
+     <tr><td>Parameters</td><td>None — values must be concatenated into the string</td><td>Typed parameters passed separately</td></tr>
+     <tr><td>SQL Injection risk</td><td>High — always sanitise input</td><td>Low — parameters are never part of the SQL text</td></tr>
+     <tr><td>Plan caching</td><td>Poor — each variation is a new plan</td><td>Good — parameterised form is reused</td></tr>
+     <tr><td>Use when</td><td>Simple one-off scripts</td><td>Procedures, production code — always prefer this</td></tr>
+   </tbody></table>
+
+   <h3>SQL injection — the critical danger</h3>
+   <p>If you concatenate user input directly into a SQL string, a malicious user can insert their own SQL. For example, if you build <code>'SELECT * FROM Users WHERE Name = ''' + @input + ''''</code> and someone passes <code>'; DROP TABLE Users; --</code> as input, you have just deleted your table. <strong>Always use sp_executesql with parameters for any user-supplied value.</strong></p>
+
+   <h3>When is dynamic SQL the right choice?</h3>
+   <ul>
+     <li>Table or column names that vary at runtime (you cannot parameterise identifiers, only values).</li>
+     <li>Optional filter conditions — building a WHERE clause based on which filters the user chose.</li>
+     <li>Pivot queries where the column list is not known at compile time.</li>
+   </ul>
+   <div class="note warn"><b>Use as a last resort</b>Dynamic SQL is harder to read, harder to debug, harder to maintain, and carries security risk. Always explore whether a static query with CASE WHEN or optional parameters can solve the problem first.</div>`,
+  examples:[
+   {run:false, sql:`-- Simple EXEC (avoid in production)\nDECLARE @sql NVARCHAR(500);\nSET @sql = 'SELECT Name, Salary FROM Employees WHERE DeptId = 1';\nEXEC(@sql);`,
+    cap:"MS SQL only. The SQL string is built and executed. This form cannot use parameters safely."},
+   {run:false, sql:`-- sp_executesql with parameters (safe, use this always)\nDECLARE @sql    NVARCHAR(500),\n        @params NVARCHAR(200),\n        @deptId INT = 1;\n\nSET @sql = N'SELECT Name, Salary FROM Employees WHERE DeptId = @dept';\nSET @params = N'@dept INT';\n\nEXEC sp_executesql @sql, @params, @dept = @deptId;`,
+    cap:"MS SQL only. @dept is passed as a typed parameter — it is never part of the SQL text, preventing injection."},
+   {run:false, sql:`-- Dynamic column filter: optional WHERE conditions\nDECLARE @sql    NVARCHAR(1000) = N'SELECT Name, Salary FROM Employees WHERE 1=1';\nDECLARE @city   NVARCHAR(50) = N'London';\nDECLARE @params NVARCHAR(200) = N'@city NVARCHAR(50)';\n\nIF @city IS NOT NULL\n  SET @sql = @sql + N' AND City = @city';\n\nEXEC sp_executesql @sql, @params, @city = @city;`,
+    cap:"MS SQL only. The WHERE clause grows dynamically. 1=1 is a common trick so you can always append AND without worrying about the first condition."}
+  ],
+  quiz:[
+   {type:"mcq", q:"Why is sp_executesql safer than EXEC() for user-supplied values?",
+    options:["It encrypts the query","Parameters are passed separately and never treated as SQL text — preventing injection","It runs faster always","It validates the SQL before running"],
+    answer:1, explain:"With sp_executesql, user input goes into typed parameter slots. It cannot be interpreted as SQL text, completely preventing SQL injection through that channel."},
+   {type:"mcq", q:"Which scenario genuinely requires dynamic SQL?",
+    options:["Filtering by a known column with a fixed value","When the table name itself is determined at runtime","All SELECT queries","Queries with ORDER BY"],
+    answer:1, explain:"You cannot parameterise table or column names in static SQL — only values. When the object name varies at runtime (e.g. querying different archive tables), dynamic SQL is necessary."},
+   {type:"mcq", q:"What does the 1=1 trick in dynamic SQL WHERE clauses achieve?",
+    options:["It makes the query run on all rows by default","It provides a permanent true condition so every additional condition can be appended with AND without worrying about which is first","It bypasses indexes","It is a SQL injection technique"],
+    answer:1, explain:"WHERE 1=1 is always true and costs nothing. It means you can always write AND condition after it, avoiding the logic of 'is this the first WHERE condition or not?'"}
+  ]
+ },
+ {
+  id:"cursors", unit:48, title:"Cursors — row-by-row processing (and why to avoid them)",
+  lead:"A cursor lets you process result rows one at a time in a loop, like iterating through a list. They work — but they are almost always the wrong tool. Understanding when and why to avoid them is as important as knowing how to write one.",
+  body:`
+   <h3>What is a cursor?</h3>
+   <p>SQL is designed to work on sets of rows at once — that is its superpower. A cursor breaks that model and forces row-by-row processing: fetch row 1, do something, fetch row 2, do something, and so on. It is like emptying a swimming pool with a teaspoon instead of a drain.</p>
+
+   <h3>The cursor lifecycle</h3>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">DECLARE cursor_name CURSOR FOR SELECT ...;
+OPEN cursor_name;
+FETCH NEXT FROM cursor_name INTO @var1, @var2;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+  -- process @var1, @var2
+  FETCH NEXT FROM cursor_name INTO @var1, @var2;
+END
+CLOSE cursor_name;
+DEALLOCATE cursor_name;</pre>
+
+   <h3>Why cursors are slow</h3>
+   <p>A set-based UPDATE that changes 10,000 rows does it in one operation. A cursor doing the same runs 10,000 individual row fetches, 10,000 updates, and 10,000 context switches. On large datasets, a cursor can be 100x or 1000x slower than the equivalent set-based query.</p>
+
+   <h3>Set-based alternatives — always try these first</h3>
+   <table class="tbl"><thead><tr><th>You want to...</th><th>Instead of a cursor, use...</th></tr></thead><tbody>
+     <tr><td>Update rows based on conditions</td><td>UPDATE ... SET ... WHERE ...</td></tr>
+     <tr><td>Process each group differently</td><td>GROUP BY + CASE WHEN</td></tr>
+     <tr><td>Walk a hierarchy</td><td>Recursive CTE</td></tr>
+     <tr><td>Running totals</td><td>SUM() OVER (ORDER BY ...)</td></tr>
+     <tr><td>Compare to previous row</td><td>LAG() / LEAD()</td></tr>
+   </tbody></table>
+
+   <h3>When cursors are acceptable</h3>
+   <ul>
+     <li>Calling a stored procedure for each row (you cannot do this set-based).</li>
+     <li>Sending emails or making API calls per row.</li>
+     <li>Complex procedural logic that genuinely cannot be expressed as a set operation.</li>
+     <li>Administrative tasks (e.g. loop through databases and run DBCC on each).</li>
+   </ul>`,
+  examples:[
+   {run:false, sql:`-- Cursor example: give each employee a personalised raise\n-- (This should really be a set-based UPDATE — shown here for learning)\nDECLARE @empId INT, @salary INT;\nDECLARE cur CURSOR FOR\n  SELECT EmpId, Salary FROM Employees WHERE DeptId = 1;\n\nOPEN cur;\nFETCH NEXT FROM cur INTO @empId, @salary;\n\nWHILE @@FETCH_STATUS = 0\nBEGIN\n  UPDATE Employees\n  SET    Salary = @salary * 1.05\n  WHERE  EmpId = @empId;\n  FETCH NEXT FROM cur INTO @empId, @salary;\nEND\n\nCLOSE cur;\nDEALLOCATE cur;`,
+    cap:"MS SQL only. This cursor gives every IT employee a 5% raise. The set-based equivalent is just: UPDATE Employees SET Salary = Salary*1.05 WHERE DeptId=1 — far simpler and faster."},
+   {sql:`-- The set-based equivalent (always prefer this)\n-- Give all DeptId=1 employees a 5% raise in one statement:\nUPDATE Employees\nSET    Salary = ROUND(Salary * 1.05, 0)\nWHERE  DeptId = 1;\nSELECT Name, DeptId, Salary FROM Employees WHERE DeptId = 1;`,
+    cap:"One statement. No loop. No cursor overhead. This is the right way."}
+  ],
+  quiz:[
+   {type:"mcq", q:"Why are cursors significantly slower than set-based queries on large datasets?",
+    options:["Cursors use more memory","Cursors process one row at a time — thousands of individual operations versus one set-based operation","Cursors cannot use indexes","SQL Server limits cursor speed"],
+    answer:1, explain:"Set-based operations work on the whole dataset in one engine operation. Cursors loop row-by-row with fetch overhead for each — on 100,000 rows this can be 100x slower."},
+   {type:"mcq", q:"Which task genuinely justifies using a cursor?",
+    options:["Updating salaries based on a condition","Calculating a running total","Calling a stored procedure once for each row in a result set","Grouping rows by department"],
+    answer:2, explain:"Calling a stored procedure per row cannot be done set-based. Administrative tasks, email sending per row, and API calls per row are valid cursor use cases."},
+   {type:"mcq", q:"What should you always call after finishing with a cursor to release resources?",
+    options:["DROP CURSOR","DELETE CURSOR","CLOSE then DEALLOCATE","RESET CURSOR"],
+    answer:2, explain:"CLOSE releases the cursor result set. DEALLOCATE removes the cursor definition. Both are required to free server resources — forgetting them leaks memory and connections."}
+  ]
+ }
+]});
+COURSE.push({
+ name:"Pagination & EXISTS", blurb:"Page through large results efficiently and choose the fastest way to check for row existence.",
+ topics:[
+ {
+  id:"pagination", unit:49, title:"Pagination with OFFSET FETCH in SQL Server",
+  lead:"Real applications never show all rows at once. OFFSET FETCH is the SQL Server way to implement pagination — showing page 1 (rows 1–10), page 2 (rows 11–20), and so on.",
+  body:`
+   <h3>What is pagination?</h3>
+   <p>Imagine a product catalogue with 50,000 items. Loading all 50,000 into a web page would be slow and unusable. Instead you show 20 at a time, with Next and Previous buttons. The database must efficiently return only the rows for the current page.</p>
+
+   <h3>OFFSET FETCH syntax</h3>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">SELECT Name, Salary
+FROM   Employees
+ORDER  BY Salary DESC
+OFFSET 10 ROWS          -- skip the first 10 rows
+FETCH  NEXT 5 ROWS ONLY; -- then take the next 5</pre>
+   <p>The formula: <code>OFFSET (pageNumber - 1) * pageSize ROWS FETCH NEXT pageSize ROWS ONLY</code></p>
+   <ul>
+     <li>Page 1: OFFSET 0, FETCH 10</li>
+     <li>Page 2: OFFSET 10, FETCH 10</li>
+     <li>Page 3: OFFSET 20, FETCH 10</li>
+   </ul>
+
+   <h3>ORDER BY is mandatory</h3>
+   <p>OFFSET FETCH requires an ORDER BY clause. Without a defined order, "rows 11–20" is meaningless — the database could return different rows each time. Always order by a stable, unique column (like a primary key) to guarantee consistent paging.</p>
+
+   <h3>TOP vs OFFSET FETCH</h3>
+   <p>TOP only gives you the first N rows. OFFSET FETCH lets you skip rows and take from the middle of the result — which is what paging requires. Use TOP for "give me the top 5", use OFFSET FETCH for "give me page 3 of 5 per page".</p>
+
+   <h3>Performance consideration</h3>
+   <p>OFFSET FETCH still scans all rows up to the offset before returning results. For very large offsets (e.g. page 5000 of a million-row table), performance degrades. The "keyset pagination" pattern (WHERE id > last_seen_id ORDER BY id FETCH NEXT n ROWS) is faster for deep paging but requires tracking the last seen value.</p>`,
+  examples:[
+   {sql:`-- Page 1: first 3 employees by salary\nSELECT Name, Salary\nFROM   Employees\nORDER  BY Salary DESC\nOFFSET 0 ROWS\nFETCH  NEXT 3 ROWS ONLY;`,
+    cap:"OFFSET 0 skips nothing. FETCH NEXT 3 returns the top 3 by salary — this is page 1 with page size 3."},
+   {sql:`-- Page 2: next 3 employees\nSELECT Name, Salary\nFROM   Employees\nORDER  BY Salary DESC\nOFFSET 3 ROWS\nFETCH  NEXT 3 ROWS ONLY;`,
+    cap:"OFFSET 3 skips the first 3 (page 1). FETCH NEXT 3 returns the next 3 — page 2."},
+   {sql:`-- Dynamic pagination: show total pages alongside results\nSELECT Name, Salary,\n       COUNT(*) OVER () AS TotalRows\nFROM   Employees\nORDER  BY Salary DESC\nOFFSET 0 ROWS\nFETCH  NEXT 3 ROWS ONLY;`,
+    cap:"COUNT(*) OVER() returns the total row count on every result row — lets the UI calculate total pages without a second query."}
+  ],
+  quiz:[
+   {type:"sql", q:"Return page 2 of employees ordered by <code>Name</code> ascending, with a page size of 3 (i.e. skip 3 rows, take the next 3).",
+    expected:`SELECT Name FROM Employees ORDER BY Name OFFSET 3 ROWS FETCH NEXT 3 ROWS ONLY;`,
+    explain:"Page 2 with size 3: OFFSET = (2-1)*3 = 3. FETCH NEXT 3 returns rows 4, 5, 6 in the ordered sequence."},
+   {type:"mcq", q:"Why is ORDER BY mandatory when using OFFSET FETCH?",
+    options:["It is just a style requirement","Without a defined order, the rows on each page would be non-deterministic and could change between calls","It speeds up the query","ORDER BY activates the FETCH clause"],
+    answer:1, explain:"Rows in a table have no guaranteed natural order. OFFSET FETCH relies on ORDER BY to define a consistent sequence — without it, 'rows 11-20' is meaningless."},
+   {type:"mcq", q:"To get page 4 with 10 rows per page, what OFFSET value do you use?",
+    options:["4","40","30","10"],
+    answer:2, explain:"Formula: OFFSET = (pageNumber - 1) * pageSize = (4-1) * 10 = 30. Skip the first 30 rows, then take the next 10."}
+  ]
+ },
+ {
+  id:"exists-vs-in", unit:50, title:"EXISTS vs IN vs JOIN — choosing the right approach",
+  lead:"All three can find matching rows across tables, but they perform very differently depending on data size and NULLs. Knowing which to use is a key performance and correctness skill.",
+  body:`
+   <h3>The same question, three ways</h3>
+   <p>"Find employees who are assigned to at least one project" — three approaches:</p>
+   <pre style="background:var(--ink);color:#D6E0EC;padding:12px 15px;border-radius:8px;font-family:var(--mono);font-size:13px">-- Using IN:
+SELECT Name FROM Employees
+WHERE EmpId IN (SELECT EmpId FROM EmployeeProjects);
+
+-- Using EXISTS:
+SELECT Name FROM Employees e
+WHERE EXISTS (SELECT 1 FROM EmployeeProjects WHERE EmpId = e.EmpId);
+
+-- Using JOIN (with DISTINCT to avoid duplicates):
+SELECT DISTINCT e.Name FROM Employees e
+JOIN EmployeeProjects ep ON e.EmpId = ep.EmpId;</pre>
+
+   <h3>IN — simple but has a NULL trap</h3>
+   <p>IN works well for small, known lists. The major danger: <code>NOT IN</code> with a subquery that can return NULLs returns zero rows — a silent bug. If <code>SELECT DeptId FROM Employees</code> can return NULL, then <code>WHERE x NOT IN (SELECT DeptId FROM Employees)</code> returns nothing at all.</p>
+
+   <h3>EXISTS — the safe, fast choice for "does it exist?"</h3>
+   <p>EXISTS stops as soon as it finds the first matching row (short-circuits). It does not care what the subquery returns — <code>SELECT 1</code> is conventional. It handles NULLs correctly. For large subquery results, EXISTS is usually faster than IN because it does not need to materialise the full list.</p>
+
+   <h3>JOIN — best for returning columns from both tables</h3>
+   <p>Use a JOIN when you need columns from the related table in your SELECT list. If you only need to check existence (not retrieve related columns), EXISTS is cleaner. If a JOIN can produce duplicate rows (one employee on multiple projects), add DISTINCT or use EXISTS instead.</p>
+
+   <h3>NOT IN vs NOT EXISTS — always prefer NOT EXISTS</h3>
+   <p>This is one of the most important rules in SQL: <strong>never use NOT IN when the subquery can return NULL</strong>. Use NOT EXISTS — it always behaves correctly.</p>
+   <table class="tbl"><thead><tr><th>Scenario</th><th>Recommended</th><th>Why</th></tr></thead><tbody>
+     <tr><td>Check if any match exists</td><td>EXISTS</td><td>Short-circuits, NULL-safe, clear intent</td></tr>
+     <tr><td>Filter by a short fixed list</td><td>IN ('a','b','c')</td><td>Simple, readable for small literal lists</td></tr>
+     <tr><td>Need columns from both tables</td><td>JOIN</td><td>Only way to SELECT from both sides</td></tr>
+     <tr><td>Exclude rows with no match</td><td>NOT EXISTS</td><td>NULL-safe — NOT IN breaks with NULLs</td></tr>
+   </tbody></table>`,
+  examples:[
+   {sql:`-- EXISTS: employees assigned to at least one project\nSELECT Name\nFROM   Employees e\nWHERE  EXISTS (\n  SELECT 1 FROM EmployeeProjects WHERE EmpId = e.EmpId\n);`,
+    cap:"EXISTS stops at the first match per employee — efficient and null-safe."},
+   {sql:`-- NOT EXISTS: employees with NO project assignment\nSELECT Name\nFROM   Employees e\nWHERE  NOT EXISTS (\n  SELECT 1 FROM EmployeeProjects WHERE EmpId = e.EmpId\n);`,
+    cap:"NOT EXISTS correctly returns employees with no project. NOT IN would break if EmployeeProjects contained a NULL EmpId."},
+   {sql:`-- IN vs EXISTS — compare results (should be identical here)\nSELECT Name FROM Employees\nWHERE  EmpId IN (SELECT EmpId FROM EmployeeProjects)\n\nUNION ALL\n\nSELECT '--- EXISTS result ---';\n\nSELECT Name FROM Employees e\nWHERE  EXISTS (SELECT 1 FROM EmployeeProjects ep WHERE ep.EmpId=e.EmpId);`,
+    cap:"Both approaches return the same employees. The difference appears with NOT IN vs NOT EXISTS when NULLs are present."}
+  ],
+  quiz:[
+   {type:"sql", q:"Return the <code>Name</code> of every employee who is NOT assigned to any project, using <code>NOT EXISTS</code>.",
+    expected:`SELECT Name FROM Employees e WHERE NOT EXISTS (SELECT 1 FROM EmployeeProjects WHERE EmpId=e.EmpId);`,
+    explain:"NOT EXISTS checks that no row in EmployeeProjects matches the employee's EmpId. It handles NULLs correctly unlike NOT IN."},
+   {type:"mcq", q:"What is the critical danger of using NOT IN when the subquery can return NULL?",
+    options:["It throws a syntax error","NOT IN with NULLs returns zero rows — a silent bug that is hard to debug","It is slower","It returns duplicate rows"],
+    answer:1, explain:"NOT IN (NULL, 1, 2) is evaluated as NOT IN (UNKNOWN, 1, 2). Any comparison with UNKNOWN is UNKNOWN, so no row passes. The result is always empty — silently wrong."},
+   {type:"mcq", q:"When should you choose JOIN over EXISTS?",
+    options:["Always — JOIN is faster","When you need to SELECT columns from the related table","When checking for NULL values","EXISTS cannot be used with JOINs"],
+    answer:1, explain:"EXISTS is ideal for checking whether a match exists. When you actually need data from the related table in your SELECT list, JOIN is the right tool."}
+  ]
+ }
+]});
+COURSE.push({
+ name:"Security & Design", blurb:"Protect your database and design schemas that scale — permissions, SQL injection, normalization.",
+ topics:[
+ {
+  id:"permissions", unit:51, title:"Users, Roles and Permissions — GRANT, DENY, REVOKE",
+  lead:"Database security controls who can do what. SQL Server uses a layered system of logins, users, roles, and permissions to give people exactly the access they need — and nothing more.",
+  body:`
+   <h3>The permission hierarchy</h3>
+   <p>SQL Server security works in layers:</p>
+   <ul>
+     <li><strong>Login</strong> — a server-level identity that can connect to SQL Server (Windows account or SQL login).</li>
+     <li><strong>User</strong> — a database-level identity mapped to a login. A login can be mapped to users in multiple databases.</li>
+     <li><strong>Role</strong> — a named group of permissions. Add users to a role instead of granting permissions individually.</li>
+     <li><strong>Permission</strong> — the specific right: SELECT, INSERT, UPDATE, DELETE, EXECUTE, etc.</li>
+   </ul>
+
+   <h3>The three permission commands</h3>
+   <table class="tbl"><thead><tr><th>Command</th><th>Effect</th><th>Example</th></tr></thead><tbody>
+     <tr><td><code>GRANT</code></td><td>Gives the permission</td><td>GRANT SELECT ON Employees TO HRUser</td></tr>
+     <tr><td><code>DENY</code></td><td>Explicitly blocks the permission (overrides GRANT)</td><td>DENY SELECT ON Salaries TO Contractor</td></tr>
+     <tr><td><code>REVOKE</code></td><td>Removes a previously granted or denied permission</td><td>REVOKE SELECT ON Employees FROM HRUser</td></tr>
+   </tbody></table>
+
+   <h3>DENY overrides GRANT</h3>
+   <p>If a user is in a role that has SELECT granted, but the user personally has SELECT denied — DENY wins. This is important: you can use DENY to block specific users even if their role would otherwise allow it.</p>
+
+   <h3>Built-in database roles</h3>
+   <table class="tbl"><thead><tr><th>Role</th><th>What they can do</th></tr></thead><tbody>
+     <tr><td><code>db_owner</code></td><td>Full control of the database</td></tr>
+     <tr><td><code>db_datareader</code></td><td>SELECT on all tables</td></tr>
+     <tr><td><code>db_datawriter</code></td><td>INSERT, UPDATE, DELETE on all tables</td></tr>
+     <tr><td><code>db_ddladmin</code></td><td>Create and alter database objects</td></tr>
+   </tbody></table>
+
+   <h3>Principle of least privilege</h3>
+   <p>Always give users the minimum permissions they need to do their job. A reporting user needs SELECT only. An application service account needs INSERT/UPDATE/DELETE on specific tables — not db_owner. Over-permissioning is one of the most common and dangerous security mistakes.</p>`,
+  examples:[
+   {run:false, sql:`-- Create a login and user, then grant SELECT\nCREATE LOGIN ReportUser WITH PASSWORD = 'Str0ngPass!';\nCREATE USER  ReportUser FOR LOGIN ReportUser;\n\n-- Grant SELECT on the Employees table\nGRANT SELECT ON Employees TO ReportUser;\n\n-- Grant SELECT on a view (better — hides salary)\nGRANT SELECT ON vw_PublicEmp TO ReportUser;`,
+    cap:"MS SQL only. ReportUser can now SELECT from Employees but cannot INSERT, UPDATE, or DELETE."},
+   {run:false, sql:`-- Use a role to manage permissions for a group\nCREATE ROLE HRRole;\nGRANT SELECT, INSERT, UPDATE ON Employees TO HRRole;\n\n-- Add users to the role\nALTER ROLE HRRole ADD MEMBER ReportUser;\n\n-- DENY the salary column even though role has SELECT\nDENY SELECT ON Employees(Salary) TO ReportUser;`,
+    cap:"MS SQL only. DENY on the Salary column overrides the role's SELECT grant — ReportUser cannot see salaries."},
+   {run:false, sql:`-- Remove a permission\nREVOKE SELECT ON Employees FROM ReportUser;\n\n-- Check effective permissions\nEXEC sp_helpprotect 'Employees';`,
+    cap:"MS SQL only. REVOKE removes the previously granted permission. sp_helpprotect shows all permissions on an object."}
+  ],
+  quiz:[
+   {type:"mcq", q:"A user is a member of a role that has SELECT granted on a table. The user also has SELECT explicitly DENIED. What can the user do?",
+    options:["SELECT — the role grant wins","Nothing — DENY overrides GRANT","Depends on which was set first","SELECT only on some columns"],
+    answer:1, explain:"DENY always overrides GRANT. Even if a role grants a permission, an explicit DENY on the user blocks it."},
+   {type:"mcq", q:"What is the principle of least privilege?",
+    options:["Give all users admin access for convenience","Grant users only the minimum permissions required to do their job","Always use db_owner for application accounts","Deny all permissions by default and never grant any"],
+    answer:1, explain:"Least privilege minimises the damage if an account is compromised or misused. A read-only reporting account cannot accidentally delete data."},
+   {type:"mcq", q:"What is the difference between REVOKE and DENY?",
+    options:["They are identical","REVOKE removes a permission; DENY actively blocks it even if the user gets it through a role","DENY is stronger than REVOKE","REVOKE only works on roles"],
+    answer:1, explain:"REVOKE removes a specific GRANT or DENY — the user goes back to having no explicit permission. DENY actively blocks the permission and overrides any GRANTs from roles."}
+  ]
+ },
+ {
+  id:"normalization", unit:52, title:"Database Normalization — 1NF, 2NF and 3NF",
+  lead:"Normalization is the process of designing a database so data is stored in the right place — no redundancy, no anomalies. It is the foundation of good database design.",
+  body:`
+   <h3>Why normalization matters</h3>
+   <p>Imagine storing a customer's city in every single order row. If the city changes (or was entered wrong), you need to update hundreds of rows. If you miss one, your data is inconsistent. Normalization eliminates these problems by ensuring each piece of information is stored in exactly one place.</p>
+   <p>The three main problems normalization solves are called <strong>anomalies</strong>:</p>
+   <ul>
+     <li><strong>Update anomaly</strong> — changing one fact requires updating many rows.</li>
+     <li><strong>Insert anomaly</strong> — you cannot add certain data without adding other unrelated data.</li>
+     <li><strong>Delete anomaly</strong> — deleting one record accidentally removes other information.</li>
+   </ul>
+
+   <h3>First Normal Form (1NF)</h3>
+   <p>Rule: each cell must contain a single atomic value — no lists, no repeating groups, each row must be uniquely identifiable.</p>
+   <p><strong>Violation:</strong> a Products column containing "Shirt, Shoes, Belt" in one cell — that is multiple values in one cell.</p>
+   <p><strong>Fix:</strong> one row per product.</p>
+
+   <h3>Second Normal Form (2NF)</h3>
+   <p>Rule: must be in 1NF AND every non-key column must depend on the ENTIRE primary key (no partial dependency).</p>
+   <p>This only applies to tables with composite primary keys. If OrderId + ProductId is the key, but ProductName depends only on ProductId (not the whole key) — that is a partial dependency.</p>
+   <p><strong>Fix:</strong> move ProductName to a separate Products table where ProductId is the key.</p>
+
+   <h3>Third Normal Form (3NF)</h3>
+   <p>Rule: must be in 2NF AND no non-key column should depend on another non-key column (no transitive dependency).</p>
+   <p><strong>Violation:</strong> Employees table has DeptId and DeptName. DeptName depends on DeptId, not directly on EmpId.</p>
+   <p><strong>Fix:</strong> move DeptName to a Departments table (exactly what our sample schema does!).</p>
+
+   <h3>When to deliberately de-normalize</h3>
+   <p>Normalized schemas can require many JOINs in queries. For reporting/analytics databases or when performance is critical, you sometimes intentionally denormalize — storing redundant data to speed up reads. This is a deliberate trade-off, not a mistake.</p>`,
+  examples:[
+   {sql:`-- Our schema is already normalized to 3NF:\n-- DeptName is in Departments (not repeated in Employees)\n-- This is the payoff: no update anomaly\nUPDATE Departments SET DeptName = 'Information Technology' WHERE DeptId = 1;\n-- One update, all employees instantly see the new name:\nSELECT e.Name, d.DeptName FROM Employees e JOIN Departments d ON e.DeptId=d.DeptId;`,
+    cap:"Because DeptName is stored once in Departments, one UPDATE fixes it for all 10 employees. In a denormalized schema you would need 10 updates."},
+   {sql:`-- Demonstrate update anomaly in a denormalized design\nCREATE TABLE OrdersDenorm(\n  OrderId INTEGER, CustName TEXT, CustCity TEXT, Amount INTEGER\n);\nINSERT INTO OrdersDenorm VALUES\n  (1,'Alice','Mumbai',500),(2,'Alice','Mumbai',300),(3,'Bob','Delhi',200);\n\n-- Alice moved to Chennai -- must update 2 rows (could miss one!):\nUPDATE OrdersDenorm SET CustCity='Chennai' WHERE CustName='Alice';\nSELECT * FROM OrdersDenorm;`,
+    cap:"In a normalized design, Alice's city would be in a Customers table — one UPDATE fixes it everywhere. Here you must find and update every row."}
+  ],
+  quiz:[
+   {type:"mcq", q:"What problem does an UPDATE anomaly describe?",
+    options:["You cannot run UPDATE queries","Changing one fact requires updating the same information in many rows","UPDATE is slower than INSERT","Primary keys cannot be updated"],
+    answer:1, explain:"An update anomaly occurs when a single real-world fact is stored in multiple rows — changing it requires updating all copies, and missing any one creates inconsistency."},
+   {type:"mcq", q:"Which normal form addresses transitive dependencies — where a non-key column depends on another non-key column?",
+    options:["1NF","2NF","3NF","BCNF"],
+    answer:2, explain:"3NF eliminates transitive dependencies. A classic example: if DeptName depends on DeptId, and DeptId is not the primary key, DeptName transitively depends on the primary key through DeptId — move it to a Departments table."},
+   {type:"mcq", q:"Our sample Employees table has a DeptId column instead of storing DeptName directly. Which normalization principle does this follow?",
+    options:["1NF — avoiding repeating groups","2NF — eliminating partial dependencies","3NF — eliminating transitive dependencies","It is not normalized"],
+    answer:2, explain:"DeptName would transitively depend on EmpId (through DeptId). By storing only DeptId in Employees and DeptName in Departments, we eliminate the transitive dependency — 3NF."}
+  ]
+ }
+]});
+
 /*__INSERT_MODULES__*/
 const FINAL_TESTS=[];
 /*__INSERT_FINALTESTS__*/
@@ -2879,16 +3668,38 @@ function flatten(){ TOPICS=[]; COURSE.forEach((m,mi)=>m.topics.forEach(t=>{t._mo
 function buildNav(){
   let h='';
   COURSE.forEach((m,mi)=>{
-    h+=`<div class="mod"><div class="mod-head"><span class="mnum">M${mi+1}</span> ${m.name}</div>`;
+    const modId='mod-'+mi;
+    const done = m.topics.filter(t=>progress[t.id]).length;
+    h+=`<div class="mod" id="${modId}">
+      <div class="mod-head" onclick="toggleMod('${modId}')">
+        <span class="mnum">M${String(mi+1).padStart(2,'0')}</span>
+        <span class="mod-title">${m.name}</span>
+        <span class="mod-count">${done}/${m.topics.length}</span>
+        <span class="mod-arrow">▼</span>
+      </div>
+      <div class="mod-topics">`;
     m.topics.forEach(t=>{
       h+=`<div class="topic-link" id="tl-${t.id}" onclick="go('topic','${t.id}')">
             <span class="tnum">${String(t.unit).padStart(2,'0')}</span>
             <span class="tname">${t.title}</span>
             <span class="check">✓</span></div>`;
     });
-    h+=`</div>`;
+    h+=`</div></div>`;
   });
   document.getElementById('navTree').innerHTML=h;
+}
+function toggleMod(modId){
+  const el=document.getElementById(modId);
+  if(el) el.classList.toggle('open');
+}
+function openModForTopic(topicId){
+  // find which module contains this topic and open it
+  COURSE.forEach((m,mi)=>{
+    if(m.topics.find(t=>t.id===topicId)){
+      const el=document.getElementById('mod-'+mi);
+      if(el) el.classList.add('open');
+    }
+  });
 }
 function refreshProgress(){
   const done=Object.keys(progress).length, total=TOPICS.length;
@@ -2905,7 +3716,10 @@ let current={view:'home',id:null};
 function setActive(){
   document.querySelectorAll('.topic-link').forEach(e=>e.classList.remove('active'));
   document.querySelectorAll('.nav-special a').forEach(e=>e.classList.remove('active'));
-  if(current.view==='topic'){const e=document.getElementById('tl-'+current.id);if(e)e.classList.add('active');}
+  if(current.view==='topic'){
+    const e=document.getElementById('tl-'+current.id);
+    if(e){ e.classList.add('active'); openModForTopic(current.id); }
+  }
   if(current.view==='home')document.getElementById('nav-home').classList.add('active');
   if(current.view==='playground')document.getElementById('nav-playground').classList.add('active');
   if(current.view==='finaltests'||current.view==='test')document.getElementById('nav-tests').classList.add('active');
